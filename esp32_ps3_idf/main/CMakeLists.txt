@@ -1,0 +1,23 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "app_config.c"
+        "app_mdns.c"
+        "wifi_manager.c"
+        "ws_bridge.c"
+        "web_server.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        esp32-ps3
+        nvs_flash
+        esp_wifi
+        esp_netif
+        esp_event
+        esp_http_server
+        esp_websocket_client
+        esp_timer
+        json
+        driver
+        mdns
+)

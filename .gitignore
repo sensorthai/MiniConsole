@@ -1,0 +1,11 @@
+node_modules/
+.next/
+dist/
+out/
+.DS_Store
+*.log
+npm-debug.log*
+esp32_ps3_idf/build/
+esp32_ps3_idf/managed_components/
+esp32_ps3_idf/dependencies.lock
+esp32_ps3_idf/sdkconfig.old

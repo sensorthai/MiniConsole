@@ -1,0 +1,31 @@
+{
+  "name": "online-game",
+  "version": "1.0.0",
+  "description": "A complete 1–4 player local-multiplayer 3D browser game console featuring a PlayStation / Google Playground-inspired 3D carousel home menu, 5 full 3D games, and a 60 Hz hardware controller bridge for Sony PS3 DualShock 3 / Sixaxis gamepads powered by an **ESP32 (Classic Bluetooth)** or **ESP32-S3 (USB Host)**.",
+  "main": "ws_game_server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "build": "next build",
+    "start": "NODE_ENV=production node server.js",
+    "pack": "node scripts/build_server_pack.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cannon-es": "^0.20.0",
+    "next": "^14.2.35",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.187.0",
+    "ws": "^8.22.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.187.0",
+    "@types/ws": "^8.18.2",
+    "typescript": "^5.4.5"
+  }
+}
