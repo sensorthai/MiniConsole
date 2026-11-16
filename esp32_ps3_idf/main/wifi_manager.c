@@ -85,7 +85,18 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         s_status.sta_connected = true;
         s_status.sta_connecting = false;
         ESP_LOGI(TAG, "WiFi STA connected! IP Address: %s", s_status.sta_ip);
+        extern esp_err_t ws_bridge_restart_client(void);
+        void wifi_ws_reconnect_task(void *arg);
+        xTaskCreate(wifi_ws_reconnect_task, "ws_mdns_reconn", 4096, NULL, 5, NULL);
     }
+}
+
+void wifi_ws_reconnect_task(void *arg)
+{
+    (void)arg;
+    extern esp_err_t ws_bridge_restart_client(void);
+    ws_bridge_restart_client();
+    vTaskDelete(NULL);
 }
 
 esp_err_t wifi_manager_init(void)

@@ -18,11 +18,21 @@ function getLocalIps(): string[] {
 
 export async function GET() {
   const ips = getLocalIps();
+  const port = process.env.PORT || 8080;
+  const mdnsInfo = (globalThis as Record<string, unknown>).__miniConsoleMdns as
+    | { hostname?: string; port?: number; devices?: unknown[] }
+    | undefined;
+  const mdnsHostname = mdnsInfo?.hostname || 'miniconsole.local';
+
   return NextResponse.json({
     ok: true,
     server: 'Next.JS (v14)',
-    port: process.env.PORT || 8080,
+    port,
     wsEndpoint: `/ws`,
-    localIps: ips
+    localIps: ips,
+    mdnsHostname,
+    mdnsUrl: `http://${mdnsHostname}:${port}`,
+    mdnsWsUrl: `ws://${mdnsHostname}:${port}/ws`,
+    discoveredDevices: mdnsInfo?.devices || []
   });
 }

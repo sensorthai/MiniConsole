@@ -9,6 +9,8 @@
 #include "esp_log.h"
 #include "esp_websocket_client.h"
 #include "cJSON.h"
+#include "mdns.h"
+#include "lwip/inet.h"
 
 #define TAG "WS_BRIDGE"
 
@@ -201,6 +203,72 @@ static void websocket_client_event_handler(void *handler_args, esp_event_base_t 
     }
 }
 
+static void normalize_and_resolve_ws_url(const char *raw_in, char *out_url, size_t out_sz)
+{
+    char work[192] = {0};
+    strncpy(work, raw_in ? raw_in : "", sizeof(work) - 1);
+
+    /* Trim leading/trailing spaces */
+    char *p = work;
+    while (*p == ' ' || *p == '\t') p++;
+    size_t len = strlen(p);
+    while (len > 0 && (p[len - 1] == ' ' || p[len - 1] == '\t')) p[--len] = '\0';
+
+    const char *scheme = "ws://";
+    if (strncmp(p, "wss://", 6) == 0) {
+        scheme = "wss://";
+        p += 6;
+    } else if (strncmp(p, "ws://", 5) == 0) {
+        scheme = "ws://";
+        p += 5;
+    }
+
+    char host[96] = {0};
+    char port[16] = "8080";
+    char path[64] = "/ws";
+
+    char *slash = strchr(p, '/');
+    if (slash) {
+        strncpy(path, slash, sizeof(path) - 1);
+        *slash = '\0';
+    }
+
+    char *colon = strchr(p, ':');
+    if (colon) {
+        strncpy(port, colon + 1, sizeof(port) - 1);
+        *colon = '\0';
+        if (!slash) {
+            /* If user specified host:port without path, default to /ws unless port is 81 */
+            if (strcmp(port, "81") == 0) {
+                strncpy(path, "/", sizeof(path) - 1);
+            }
+        }
+    }
+    strncpy(host, p, sizeof(host) - 1);
+
+    /* Resolve .local hostnames via ESP-IDF mDNS */
+    size_t hlen = strlen(host);
+    if (hlen > 6 && strcasecmp(host + hlen - 6, ".local") == 0) {
+        char mdns_name[96] = {0};
+        size_t copy_len = hlen - 6;
+        if (copy_len >= sizeof(mdns_name)) copy_len = sizeof(mdns_name) - 1;
+        memcpy(mdns_name, host, copy_len);
+        mdns_name[copy_len] = '\0';
+
+        esp_ip4_addr_t addr = {0};
+        esp_err_t qerr = mdns_query_a(mdns_name, 1500, &addr);
+        if (qerr == ESP_OK && addr.addr != 0) {
+            snprintf(host, sizeof(host), IPSTR, IP2STR(&addr));
+            ESP_LOGI(TAG, "Resolved mDNS '%s.local' -> %s", mdns_name, host);
+        } else {
+            ESP_LOGW(TAG, "mDNS lookup for '%s.local' failed (%s), using hostname directly",
+                     mdns_name, esp_err_to_name(qerr));
+        }
+    }
+
+    snprintf(out_url, out_sz, "%s%s:%s%s", scheme, host, port, path);
+}
+
 esp_err_t ws_bridge_restart_client(void)
 {
     if (s_ws_client) {
@@ -211,13 +279,16 @@ esp_err_t ws_bridge_restart_client(void)
     }
 
     const app_config_t *cfg = app_config_get();
-    if (!cfg->ws_client_enabled || strlen(cfg->ws_server_url) < 6) {
+    if (!cfg->ws_client_enabled || strlen(cfg->ws_server_url) < 3) {
         ESP_LOGI(TAG, "Outbound WebSocket Client disabled or empty URL");
         return ESP_OK;
     }
 
+    char resolved_url[256] = {0};
+    normalize_and_resolve_ws_url(cfg->ws_server_url, resolved_url, sizeof(resolved_url));
+
     esp_websocket_client_config_t ws_cfg = {
-        .uri = cfg->ws_server_url,
+        .uri = resolved_url,
         .disable_auto_reconnect = false,
         .buffer_size = 1024,
         .ping_interval_sec = 10,
@@ -225,13 +296,14 @@ esp_err_t ws_bridge_restart_client(void)
 
     s_ws_client = esp_websocket_client_init(&ws_cfg);
     if (!s_ws_client) {
-        ESP_LOGE(TAG, "Failed to init WebSocket client for URL: %s", cfg->ws_server_url);
+        ESP_LOGE(TAG, "Failed to init WebSocket client for URL: %s", resolved_url);
         return ESP_FAIL;
     }
 
     esp_websocket_register_events(s_ws_client, WEBSOCKET_EVENT_ANY, websocket_client_event_handler, NULL);
     esp_err_t err = esp_websocket_client_start(s_ws_client);
-    ESP_LOGI(TAG, "Started Outbound WebSocket Client -> %s (%s)", cfg->ws_server_url, esp_err_to_name(err));
+    ESP_LOGI(TAG, "Started Outbound WebSocket Client -> %s (from '%s', %s)",
+             resolved_url, cfg->ws_server_url, esp_err_to_name(err));
     return err;
 }
 

@@ -86,7 +86,13 @@ export class InputManager {
         if (!newUrl) return;
         let formatted = newUrl.trim();
         if (!formatted.startsWith('ws://') && !formatted.startsWith('wss://')) {
-            formatted = `ws://${formatted}`;
+            if (!formatted.includes(':') && !formatted.includes('/')) {
+                formatted = /^miniconsole-p\d/i.test(formatted)
+                    ? `ws://${formatted}:81`
+                    : `ws://${formatted}:8080/ws`;
+            } else {
+                formatted = `ws://${formatted}`;
+            }
         }
         Config.wifi.wsUrl = formatted;
         try { localStorage.setItem('mc_ws_url', formatted); } catch (_) {}

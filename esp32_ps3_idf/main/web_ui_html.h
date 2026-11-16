@@ -865,8 +865,9 @@ body{background:var(--bg);color:var(--txt);padding:16px;max-width:1320px;margin:
         </label>
       </div>
       <div class="form-row">
-        <label>Game Server WebSocket URL</label>
-        <input type="text" id="wsUrl" placeholder="ws://192.168.1.144:8080/ws">
+        <label>Game Server Host / WebSocket URL</label>
+        <input type="text" id="wsUrl" placeholder="miniconsole.local">
+        <small>พิมพ์แค่ <code>miniconsole.local</code> ได้เลย (ระบบเติม <code>ws://...:8080/ws</code> ให้อัตโนมัติ)</small>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">

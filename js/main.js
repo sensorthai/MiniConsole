@@ -268,8 +268,64 @@ class MiniGameConsoleApp {
         if (wsConnectBtn && wsUrlInput) {
             wsConnectBtn.addEventListener('click', () => {
                 this.input.setWebSocketUrl(wsUrlInput.value);
+                wsUrlInput.value = this.input.activeWsUrl || wsUrlInput.value;
                 this.audio.uiConfirm();
             });
+        }
+        this.refreshMdnsPresets();
+    }
+
+    async refreshMdnsPresets() {
+        const bar = document.getElementById('mdns-presets-bar');
+        const wsUrlInput = document.getElementById('ws-url-input');
+        if (!bar) return;
+
+        const presets = [
+            { label: 'miniconsole.local (Hub)', url: 'ws://miniconsole.local:8080/ws' },
+            { label: 'MiniConsole-P1.local', url: 'ws://MiniConsole-P1.local:81' },
+            { label: 'MiniConsole-P2.local', url: 'ws://MiniConsole-P2.local:81' },
+            { label: 'AP 192.168.4.1', url: 'ws://192.168.4.1:81' }
+        ];
+
+        let mdnsWebUrl = '';
+        if (typeof window !== 'undefined' && window.location && window.location.protocol.startsWith('http')) {
+            try {
+                const res = await fetch('/api/server-info', { cache: 'no-store' });
+                if (res.ok) {
+                    const info = await res.json();
+                    if (info.mdnsWsUrl) {
+                        presets[0] = { label: `${info.mdnsHostname || 'miniconsole.local'} (Hub)`, url: info.mdnsWsUrl };
+                    }
+                    if (info.mdnsUrl) mdnsWebUrl = info.mdnsUrl;
+                    if (Array.isArray(info.discoveredDevices)) {
+                        for (const dev of info.discoveredDevices) {
+                            if (dev.wsUrl && !presets.some((p) => p.url.toLowerCase() === dev.wsUrl.toLowerCase())) {
+                                presets.push({ label: `${dev.host} (พบอัตโนมัติ)`, url: dev.wsUrl });
+                            }
+                        }
+                    }
+                }
+            } catch (_) {}
+        }
+
+        bar.innerHTML = '';
+        const title = document.createElement('span');
+        title.textContent = mdnsWebUrl ? `🌐 mDNS (${mdnsWebUrl.replace(/^https?:\/\//, '')}):` : '🌐 mDNS:';
+        title.style.fontWeight = '700';
+        title.style.color = 'var(--cyan)';
+        bar.appendChild(title);
+
+        for (const preset of presets) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = preset.label;
+            btn.style.cssText = 'padding:3px 8px;font-size:0.72rem;border-radius:6px;background:rgba(0,240,255,0.1);border:1px solid rgba(0,240,255,0.3);color:#dffaff;cursor:pointer;';
+            btn.addEventListener('click', () => {
+                if (wsUrlInput) wsUrlInput.value = preset.url;
+                this.input.setWebSocketUrl(preset.url);
+                this.audio.uiConfirm();
+            });
+            bar.appendChild(btn);
         }
     }
 

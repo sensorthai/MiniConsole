@@ -95,14 +95,19 @@ const BODY_HTML = `    <canvas id="webgl-canvas"></canvas>
                 <div id="lobby-controls-grid" class="lobby-controls-grid"></div>
             </div>
 
-            <div class="lobby-controls-box" style="margin-top:10px;padding:10px 14px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;">
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <span style="font-size:0.78rem;font-weight:800;color:var(--cyan);">🔌 ESP32 PS3 WebSocket:</span>
-                    <span id="ws-status-badge" class="status-badge fallback">ESP32: ออฟไลน์</span>
+            <div class="lobby-controls-box" style="margin-top:10px;padding:10px 14px;display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span style="font-size:0.78rem;font-weight:800;color:var(--cyan);">🔌 ESP32 PS3 WebSocket:</span>
+                        <span id="ws-status-badge" class="status-badge fallback">ESP32: ออฟไลน์</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:240px;max-width:440px;">
+                        <input id="ws-url-input" type="text" value="ws://miniconsole.local:8080/ws" placeholder="miniconsole.local หรือ ws://MiniConsole-P1.local:81" style="flex:1;background:rgba(8,12,24,0.9);border:1px solid var(--border-glass);color:#fff;padding:6px 10px;border-radius:8px;font-size:0.78rem;" />
+                        <button id="btn-ws-connect" style="padding:6px 12px;font-size:0.76rem;">เชื่อมต่อ</button>
+                    </div>
                 </div>
-                <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:240px;max-width:420px;">
-                    <input id="ws-url-input" type="text" value="ws://192.168.4.1:81" placeholder="ws://192.168.4.1:81 หรือ ws://localhost:8080/ws" style="flex:1;background:rgba(8,12,24,0.9);border:1px solid var(--border-glass);color:#fff;padding:6px 10px;border-radius:8px;font-size:0.78rem;" />
-                    <button id="btn-ws-connect" style="padding:6px 12px;font-size:0.76rem;">เชื่อมต่อ</button>
+                <div id="mdns-presets-bar" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:0.74rem;color:var(--text-muted);">
+                    <span>🌐 mDNS:</span>
                 </div>
             </div>
 

@@ -3,10 +3,19 @@ const { parse } = require('url');
 const next = require('next');
 const { WebSocketServer, WebSocket } = require('ws');
 const os = require('os');
+const { Bonjour } = require('bonjour-service');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = '0.0.0.0';
 const port = parseInt(process.env.PORT || '8080', 10);
+const mdnsHostBase = (process.env.MDNS_NAME || 'miniconsole').replace(/\.local$/i, '').toLowerCase();
+const mdnsHostname = `${mdnsHostBase}.local`;
+
+globalThis.__miniConsoleMdns = {
+  hostname: mdnsHostname,
+  port,
+  devices: []
+};
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
@@ -84,9 +93,67 @@ app.prepare().then(() => {
 
   server.listen(port, hostname, () => {
     const ips = getLocalIps();
+    let bonjour = null;
+    try {
+      bonjour = new Bonjour();
+      bonjour.publish({
+        name: 'Mini Game Console 3D',
+        type: 'http',
+        port,
+        host: mdnsHostname,
+        txt: { path: '/', ws: '/ws', app: 'miniconsole' }
+      });
+      bonjour.publish({
+        name: 'MiniConsole-WS',
+        type: 'ws',
+        port,
+        host: mdnsHostname,
+        txt: { path: '/ws', app: 'miniconsole' }
+      });
+
+      const browser = bonjour.find({ type: 'http' });
+      const syncDevices = () => {
+        const list = [];
+        for (const svc of browser.services || []) {
+          const svcHost = (svc.host || '').replace(/\.$/, '');
+          const svcName = svc.name || '';
+          if (!svcHost || svcHost.toLowerCase() === mdnsHostname) continue;
+          if (/miniconsole/i.test(svcName) || /miniconsole/i.test(svcHost)) {
+            const ipv4 = (svc.addresses || []).find((a) => /^\d+\.\d+\.\d+\.\d+$/.test(a)) || '';
+            list.push({
+              name: svcName,
+              host: svcHost,
+              ip: ipv4,
+              wsUrl: `ws://${svcHost}:81`
+            });
+          }
+        }
+        globalThis.__miniConsoleMdns.devices = list;
+      };
+      browser.on('up', syncDevices);
+      browser.on('down', syncDevices);
+
+      const shutdownMdns = () => {
+        if (bonjour) {
+          bonjour.unpublishAll(() => {
+            bonjour.destroy();
+            process.exit(0);
+          });
+        } else {
+          process.exit(0);
+        }
+      };
+      process.once('SIGINT', shutdownMdns);
+      process.once('SIGTERM', shutdownMdns);
+    } catch (err) {
+      console.warn('[mDNS] Failed to start mDNS advertisement:', err.message);
+    }
+
     console.log('================================================================');
     console.log(` ⚡ Mini Game Console 3D — Next.JS Server Running on Port ${port}!`);
     console.log('================================================================');
+    console.log(` 🌐 mDNS Web App    : http://${mdnsHostname}:${port}`);
+    console.log(` 🔌 mDNS WebSocket  : ws://${mdnsHostname}:${port}/ws`);
     for (const ip of ips) {
       console.log(` 🌐 Next.JS Web App : http://${ip}:${port}`);
       console.log(` 🔌 ESP32 WebSocket : ws://${ip}:${port}/ws`);

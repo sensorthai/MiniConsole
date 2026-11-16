@@ -23,7 +23,7 @@ void app_config_init_defaults(app_config_t *cfg)
     strncpy(cfg->sta_pass, "0882988966", sizeof(cfg->sta_pass) - 1);
 
     cfg->ws_client_enabled = true;
-    strncpy(cfg->ws_server_url, "ws://192.168.1.144:8080/ws", sizeof(cfg->ws_server_url) - 1);
+    strncpy(cfg->ws_server_url, "miniconsole.local", sizeof(cfg->ws_server_url) - 1);
     cfg->send_rate_hz = 60;
     cfg->deadzone = 8;
     cfg->use_custom_bt_mac = true;
