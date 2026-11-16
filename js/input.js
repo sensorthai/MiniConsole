@@ -77,7 +77,8 @@ export class InputManager {
             if (saved && saved.startsWith('ws')) return saved;
         } catch (_) {}
         if (typeof window !== 'undefined' && window.location && window.location.protocol.startsWith('http') && window.location.host) {
-            return `ws://${window.location.host}/ws`;
+            const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            return `${wsProto}//${window.location.host}/ws`;
         }
         return Config.wifi.wsUrl;
     }

@@ -94,8 +94,10 @@ app.prepare().then(() => {
   server.listen(port, hostname, () => {
     const ips = getLocalIps();
     let bonjour = null;
-    try {
-      bonjour = new Bonjour();
+    const isCloudEnv = Boolean(process.env.KOYEB_SERVICE_NAME || process.env.KOYEB_APP_NAME || process.env.DISABLE_MDNS === '1');
+    if (!isCloudEnv) {
+      try {
+        bonjour = new Bonjour();
       bonjour.publish({
         name: 'Mini Game Console 3D',
         type: 'http',
@@ -147,6 +149,7 @@ app.prepare().then(() => {
       process.once('SIGTERM', shutdownMdns);
     } catch (err) {
       console.warn('[mDNS] Failed to start mDNS advertisement:', err.message);
+    }
     }
 
     console.log('================================================================');
