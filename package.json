@@ -1,6 +1,6 @@
 {
   "name": "online-game",
-  "version": "1.0.0",
+  "version": "3.1.0",
   "description": "A complete 1–4 player local-multiplayer 3D browser game console featuring a PlayStation / Google Playground-inspired 3D carousel home menu, 5 full 3D games, and a 60 Hz hardware controller bridge for Sony PS3 DualShock 3 / Sixaxis gamepads powered by an **ESP32 (Classic Bluetooth)** or **ESP32-S3 (USB Host)**.",
   "main": "ws_game_server.js",
   "scripts": {

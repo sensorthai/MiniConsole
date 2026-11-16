@@ -22,8 +22,9 @@ import { Game2Blaster } from '../games/game2.js';
 import { Game3Sumo } from '../games/game3.js';
 import { Game4Soccer } from '../games/game4.js';
 import { Game5Zombies } from '../games/game5.js';
+import { Game6Tennis } from '../games/game6.js';
 
-const GAME_CLASSES = [Game1Kart, Game2Blaster, Game3Sumo, Game4Soccer, Game5Zombies];
+const GAME_CLASSES = [Game1Kart, Game2Blaster, Game3Sumo, Game4Soccer, Game5Zombies, Game6Tennis];
 
 class MiniGameConsoleApp {
     constructor() {
@@ -140,10 +141,28 @@ class MiniGameConsoleApp {
                 model = createSumoMech(g.accentHex, 0.72);
             } else if (idx === 3) {
                 model = createDetailedSoccerBall(0.68);
-            } else {
+            } else if (idx === 4) {
                 model = createDetailedZombie(false);
                 model.scale.setScalar(0.55);
                 model.position.y = -0.45;
+            } else {
+                // โมเดลแร็กเกตและลูกเทนนิสเรืองแสงสำหรับ Cyber Tennis
+                model = new THREE.Group();
+                const rim = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.55, 0.08, 12, 24),
+                    new THREE.MeshStandardMaterial({ color: g.accentHex, emissive: g.accentHex, emissiveIntensity: 1.2 })
+                );
+                const handle = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.06, 0.06, 0.65, 10),
+                    new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.7, roughness: 0.25 })
+                );
+                handle.position.y = -0.85;
+                const tBall = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.24, 16, 16),
+                    new THREE.MeshStandardMaterial({ color: 0xeaff00, emissive: 0xbfff00, emissiveIntensity: 1.0 })
+                );
+                tBall.position.set(0.42, 0.32, 0.25);
+                model.add(rim, handle, tBall);
             }
             iconMesh.add(model);
             iconMesh.position.set(0, 2.95, 0.25);

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Grand Prix Circuit Asset Preview (Blender -> Three.js GLB)</title>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.164.1/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.164.1/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #0a1022;
+            color: #f1f5f9;
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+        }
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+        }
+        .panel {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            z-index: 10;
+            background: rgba(10, 16, 34, 0.88);
+            border: 1px solid rgba(0, 240, 255, 0.35);
+            backdrop-filter: blur(12px);
+            border-radius: 14px;
+            padding: 16px 18px;
+            width: 340px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+        }
+        .panel h1 {
+            font-size: 1.1rem;
+            color: #00f0ff;
+            margin-bottom: 4px;
+        }
+        .panel p {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-bottom: 12px;
+        }
+        .layer-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .layer-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.06);
+            color: #e2e8f0;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .layer-btn.active {
+            border-color: #00f0ff;
+            background: rgba(0, 240, 255, 0.16);
+            color: #fff;
+        }
+        .cam-btn {
+            width: 100%;
+            padding: 9px 12px;
+            border-radius: 9px;
+            border: 1px solid #05ffa1;
+            background: rgba(5, 255, 161, 0.15);
+            color: #05ffa1;
+            font-weight: 700;
+            font-size: 0.84rem;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+        .cam-btn.active {
+            background: #05ffa1;
+            color: #081020;
+        }
+        .stats {
+            font-size: 0.76rem;
+            color: #cbd5e1;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 8px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="panel">
+        <h1>🏁 Grand Prix Circuit 3D Asset</h1>
+        <p>Blender 5.3.0 → <code>/models/grand_prix_circuit.glb</code></p>
+        <div class="layer-grid">
+            <button class="layer-btn active" data-group="asphalt">🛣️ Asphalt & Line</button>
+            <button class="layer-btn active" data-group="kerb">🟥⬜ Kerb</button>
+            <button class="layer-btn active" data-group="tire">⚫ Tire Barrier</button>
+            <button class="layer-btn active" data-group="grass">🌿 Grass/Sand/Pond</button>
+            <button class="layer-btn" data-group="collision">🛡️ Collision Mesh</button>
+            <button class="layer-btn active" data-group="raceline">💠 Racing Line</button>
+            <button class="layer-btn" data-group="checkpoints">🚩 Checkpoints (20)</button>
+            <button class="layer-btn active" data-group="props">🏢 Pit / Buildings / Trees</button>
+        </div>
+        <button id="btn-drive-cam" class="cam-btn">🎥 ทดสอบวิ่งตาม Racing Line (On-Track Cam)</button>
+        <div id="asset-stats" class="stats">กำลังโหลดโมเดล GLB...</div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        const container = document.getElementById('canvas-container');
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.1;
+        container.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0b1528);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.5, 500);
+        camera.position.set(0, 78, 86);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.target.set(0, 0, 0);
+        window.__cam = camera;
+        window.__ctrl = controls;
+
+        scene.add(new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 1.15));
+        const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+        sun.position.set(35, 65, 42);
+        scene.add(sun);
+
+        const groups = {
+            asphalt: [],
+            kerb: [],
+            tire: [],
+            grass: [],
+            collision: [],
+            raceline: [],
+            checkpoints: [],
+            props: []
+        };
+
+        let racingCurve = null;
+        let driveMode = false;
+        let driveT = 0;
+
+        const loader = new GLTFLoader();
+        loader.load('/models/grand_prix_circuit.glb', (gltf) => {
+            const root = gltf.scene;
+            scene.add(root);
+
+            let meshCount = 0;
+            const cpPositions = [];
+
+            root.traverse((obj) => {
+                if (!obj.isMesh) return;
+                meshCount++;
+                const n = obj.name;
+                if (n === 'Asphalt' || n === 'Road_Center_Line' || n === 'Start_Finish_Line') {
+                    groups.asphalt.push(obj);
+                } else if (n === 'Kerb') {
+                    groups.kerb.push(obj);
+                } else if (n === 'Tire_Barrier') {
+                    groups.tire.push(obj);
+                } else if (n === 'Grass' || n === 'Sand_Runoff' || n === 'Water_Pond' || n.startsWith('Waterfall_Rock')) {
+                    groups.grass.push(obj);
+                } else if (n === 'Collision_Mesh') {
+                    obj.material = new THREE.MeshBasicMaterial({
+                        color: 0x00ff66,
+                        wireframe: true,
+                        transparent: true,
+                        opacity: 0.65
+                    });
+                    obj.visible = false;
+                    groups.collision.push(obj);
+                } else if (n === 'Racing_Line') {
+                    obj.material = new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide });
+                    groups.raceline.push(obj);
+                } else if (n.startsWith('Checkpoint_')) {
+                    obj.material = new THREE.MeshBasicMaterial({
+                        color: 0xffcc00,
+                        transparent: true,
+                        opacity: 0.38,
+                        side: THREE.DoubleSide
+                    });
+                    obj.visible = false;
+                    groups.checkpoints.push(obj);
+                    cpPositions.push({ name: n, pos: obj.position.clone() });
+                } else {
+                    groups.props.push(obj);
+                }
+            });
+
+            cpPositions.sort((a, b) => a.name.localeCompare(b.name));
+            if (cpPositions.length > 3) {
+                racingCurve = new THREE.CatmullRomCurve3(
+                    cpPositions.map(c => new THREE.Vector3(c.pos.x, 1.25, c.pos.z)),
+                    true
+                );
+            }
+
+            document.getElementById('asset-stats').innerHTML =
+                `✅ โหลดสำเร็จ: <strong>${meshCount} Meshes</strong><br/>` +
+                `• แยกส่วน: Asphalt, Kerb, Tire_Barrier, Grass, Pit_Lane<br/>` +
+                `• Physics: <code>Collision_Mesh</code> + <code>Checkpoint_00..19</code> (${groups.checkpoints.length} จุด)`;
+            window.__TRACK_PREVIEW_READY = { meshCount, checkpoints: groups.checkpoints.length };
+        });
+
+        document.querySelectorAll('.layer-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const g = btn.dataset.group;
+                const active = btn.classList.toggle('active');
+                (groups[g] || []).forEach(m => { m.visible = active; });
+            });
+        });
+
+        const driveBtn = document.getElementById('btn-drive-cam');
+        driveBtn.addEventListener('click', () => {
+            driveMode = !driveMode;
+            driveBtn.classList.toggle('active', driveMode);
+            if (!driveMode) {
+                camera.position.set(0, 78, 86);
+                controls.target.set(0, 0, 0);
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+            if (driveMode && racingCurve) {
+                driveT = (driveT + dt * 0.055) % 1.0;
+                const p = racingCurve.getPointAt(driveT);
+                const look = racingCurve.getPointAt((driveT + 0.025) % 1.0);
+                camera.position.set(p.x, 2.2, p.z);
+                camera.lookAt(look.x, 1.4, look.z);
+            } else {
+                controls.update();
+            }
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>

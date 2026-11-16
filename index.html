@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>มินิเกมคอนโซล 3D — ระบบมัลติเพลเยอร์ 1-4 คน (ESP32 + จอย PS3 DualShock 3)</title>
+    <!-- Babylon.js 3D Engine (CDN) -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <!-- Import Map for Three.js r164 & cannon-es Physics Engine -->
     <script type="importmap">
     {
@@ -728,6 +730,9 @@ import * as CANNON from 'cannon-es';
 /**
  * Global Configuration & Hardware Protocol Constants (Thai Localization)
  */
+/**
+ * Global Configuration & Hardware Protocol Constants (Thai Localization)
+ */
 const Config = {
     wifi: {
         ssid: 'MiniConsole',
@@ -854,6 +859,25 @@ const Config = {
                 { btn: '🕹️ อนาล็อกขวา (R-Stick)', desc: 'หันเล็งทิศทางและยิงอัตโนมัติตามทิศที่ดัน' },
                 { btn: 'ปุ่ม □ / ✕ / R2', desc: 'ยิงอาวุธปืนประจำทีม (อัปเกรดอัตโนมัติ 3 ระดับ)' },
                 { btn: 'ปุ่ม △ (สามเหลี่ยม)', desc: 'ใช้แต้มพลังงานทีม 50 แต้ม ซ่อมเตาปฏิกรณ์ (+200 HP)' },
+                { btn: 'คีย์บอร์ด: Tab / P / ESC', desc: 'ดูตารางสถิติ / หยุดเกม / กลับเมนูหลัก' }
+            ]
+        },
+        {
+            id: 'cyber-tennis',
+            title: 'CYBER TENNIS',
+            titleTh: 'ไซเบอร์เทนนิส 3 มิติ',
+            subtitle: 'ดวลแร็กเกตพลังงานไซเบอร์ ชิง 5 คะแนน (1-4 ผู้เล่น)',
+            genre: 'เกมกีฬาอาร์เคด 3 มิติ',
+            players: 'รองรับ 1-4 ผู้เล่น (1v1 หรือ 2v2)',
+            accent: '#00d9ff',
+            accentHex: 0x00d9ff,
+            description: 'ดวลเทนนิสในสนามนีออนไซเบอร์ 3 มิติ ตีลูกได้ 4 รูปแบบทั้ง Normal, Power, Lob และ Special Cyber Smash ชิง 5 แต้มแรกเพื่อคว้าแชมป์!',
+            controls: [
+                { btn: '🕹️ อนาล็อกซ้าย (L-Stick)', desc: 'เคลื่อนที่ซ้าย-ขวา หน้า-หลัง และกำหนดทิศทางลูก' },
+                { btn: 'ปุ่ม ✕ หรือ R1', desc: 'ตีลูกปกติ (Normal Shot)' },
+                { btn: 'ปุ่ม □ หรือ R2', desc: 'หวดลูกพลังสูงความเร็วแรง (Power Shot)' },
+                { btn: 'ปุ่ม ◯ หรือ L1', desc: 'ตีลูกโด่งข้ามหัว (Lob Shot)' },
+                { btn: 'ปุ่ม △ หรือ L2', desc: 'ท่าไม้ตาย Cyber Smash (ใช้พลังพิเศษ 50%)' },
                 { btn: 'คีย์บอร์ด: Tab / P / ESC', desc: 'ดูตารางสถิติ / หยุดเกม / กลับเมนูหลัก' }
             ]
         }
@@ -1156,6 +1180,55 @@ class SoundEngine {
 
             this.bgmStep++;
         }, 108);
+    }
+
+    tennisHit(isPower = false) {
+        this.init();
+        if (!this.ctx || this.muted) return;
+        if (isPower) {
+            this.playTone(320, 0.14, 'sawtooth', 0.34, 980);
+            setTimeout(() => this.playTone(640, 0.10, 'triangle', 0.25, 220), 25);
+        } else {
+            this.playTone(460, 0.08, 'triangle', 0.28, 220);
+        }
+    }
+
+    tennisBounce() {
+        this.playTone(210, 0.055, 'sine', 0.20, 120);
+    }
+
+    startTennisBGM() {
+        this.init();
+        this.stopBGM();
+        this.bgmStep = 0;
+
+        // ดนตรี Synthwave / Cyber Arcade 130 BPM สำหรับ Cyber Tennis
+        const bassNotes = [130.81, 130.81, 164.81, 146.83]; // C3, C3, E3, D3
+        const leadPattern = [523.25, 659.25, 783.99, 1046.5, 783.99, 659.25, 587.33, 783.99];
+
+        this.bgmInterval = setInterval(() => {
+            if (!this.ctx || this.muted || this.ctx.state !== 'running') return;
+            const step = this.bgmStep % 64;
+            const bar = Math.floor(step / 16);
+            const beatStep = step % 16;
+            const root = bassNotes[bar];
+
+            if (beatStep % 4 === 0) {
+                this.playTone(88, 0.10, 'sine', 0.20, 38);
+            }
+            if (beatStep % 2 === 1) {
+                this.playTone(4800, 0.022, 'triangle', 0.04, 2400);
+            }
+            if (beatStep % 2 === 0) {
+                this.playTone(root, 0.09, 'sawtooth', 0.085, root * 0.98);
+            }
+            if (beatStep % 2 === 0) {
+                const f = leadPattern[(beatStep / 2) % leadPattern.length];
+                this.playTone(f, 0.08, 'triangle', 0.07);
+            }
+
+            this.bgmStep++;
+        }, 115);
     }
 
     victoryFanfare() {
@@ -3057,7 +3130,158 @@ class GameBase {
     }
 }
 
-        class Game1Kart extends GameBase {
+/**
+ * Game 1: NEON KART RACING (ศึกซิ่งคาร์ทสายฟ้า)
+ * - ความยาวสนามแข่งเพิ่มขึ้น 4 เท่า (480 เซกเมนต์, รัศมีสนาม 272 x 176 เมตร)
+ * - มุมมองกล้อง (Player View) ล็อกตรงหลังรถของแต่ละคนอย่างแม่นยำ พร้อมป้าย P1-P4 เหนือรถและกรอบประจำจอ
+ * - แถบ Bar ด้านบนไม่แสดงป้ายไอเทม
+ * - การวางกล่องไอเทมและแผ่นบูสต์ในถนนวางสลับเลน (ซ้าย / กลาง / ขวา / สลับฟันปลา)
+ * - ซุ้มป้าย FINISH และเส้นชัยตารางหมากรุกขนาดใหญ่ชัดเจนสวยงาม
+ */
+
+const CIRCUIT_RACING_LINE = [[-14.331,-25.51],[-12,-26],[-9.575,-26.388],[-6.991,-26.718],[-4.281,-26.984],[-1.481,-27.185],[1.374,-27.317],[4.25,-27.375],[7.112,-27.357],[9.926,-27.259],[12.656,-27.078],[15.269,-26.81],[17.728,-26.452],[20,-26],[22.15,-25.433],[24.259,-24.741],[26.312,-23.938],[28.296,-23.037],[30.197,-22.053],[32,-21],[33.692,-19.891],[35.259,-18.741],[36.688,-17.562],[37.963,-16.37],[39.072,-15.178],[40,-14],[40.758,-12.769],[41.366,-11.426],[41.828,-10],[42.148,-8.519],[42.329,-7.009],[42.375,-5.5],[42.289,-4.019],[42.074,-2.593],[41.734,-1.25],[41.273,-0.019],[40.694,1.074],[40,2],[39.105,2.734],[37.949,3.292],[36.578,3.703],[35.037,4],[33.371,4.214],[31.625,4.375],[29.844,4.516],[28.074,4.667],[26.359,4.859],[24.745,5.125],[23.277,5.495],[22,6],[20.804,6.617],[19.569,7.296],[18.328,8.031],[17.111,8.815],[15.95,9.64],[14.875,10.5],[13.918,11.388],[13.111,12.296],[12.484,13.219],[12.069,14.148],[11.898,15.078],[12,16],[12.544,16.949],[13.602,17.954],[15.062,19],[16.815,20.074],[18.748,21.162],[20.75,22.25],[22.711,23.324],[24.519,24.37],[26.062,25.375],[27.231,26.324],[27.914,27.204],[28,28],[27.523,28.748],[26.625,29.486],[25.359,30.203],[23.778,30.889],[21.932,31.533],[19.875,32.125],[17.658,32.655],[15.333,33.111],[12.953,33.484],[10.569,33.764],[8.234,33.939],[6,34],[3.742,33.946],[1.324,33.787],[-1.219,33.531],[-3.852,33.185],[-6.541,32.756],[-9.25,32.25],[-11.946,31.675],[-14.593,31.037],[-17.156,30.344],[-19.602,29.602],[-21.895,28.818],[-24,28],[-26.022,27.107],[-28.065,26.106],[-30.094,25.016],[-32.074,23.852],[-33.971,22.633],[-35.75,21.375],[-37.376,20.097],[-38.815,18.815],[-40.031,17.547],[-40.991,16.31],[-41.659,15.122],[-42,14],[-41.858,12.924],[-41.171,11.861],[-40.047,10.812],[-38.593,9.778],[-36.916,8.757],[-35.125,7.75],[-33.327,6.757],[-31.63,5.778],[-30.141,4.812],[-28.968,3.861],[-28.218,2.924],[-28,2],[-28.359,1.09],[-29.208,0.194],[-30.453,-0.688],[-32,-1.556],[-33.755,-2.41],[-35.625,-3.25],[-37.516,-4.076],[-39.333,-4.889],[-40.984,-5.688],[-42.375,-6.472],[-43.411,-7.243],[-44,-8],[-44.225,-8.73],[-44.241,-9.426],[-44.062,-10.094],[-43.704,-10.741],[-43.178,-11.374],[-42.5,-12],[-41.683,-12.626],[-40.741,-13.259],[-39.688,-13.906],[-38.537,-14.574],[-37.303,-15.27],[-36,-16],[-34.586,-16.795],[-33.019,-17.667],[-31.312,-18.594],[-29.481,-19.556],[-27.539,-20.531],[-25.5,-21.5],[-23.377,-22.441],[-21.185,-23.333],[-18.938,-24.156],[-16.648,-24.889]];
+
+/**
+ * Game 1: NEON KART RACING (ศึกซิ่งคาร์ทสายฟ้า)
+ * - ความยาวสนามแข่งเพิ่มขึ้น 4 เท่า (480 เซกเมนต์, รัศมีสนาม 272 x 176 เมตร)
+ * - มุมมองกล้อง (Player View) ล็อกตรงหลังรถของแต่ละคนอย่างแม่นยำ พร้อมป้าย P1-P4 เหนือรถและกรอบประจำจอ
+ * - แถบ Bar ด้านบนไม่แสดงป้ายไอเทม
+ * - การวางกล่องไอเทมและแผ่นบูสต์ในถนนวางสลับเลน (ซ้าย / กลาง / ขวา / สลับฟันปลา)
+ * - ซุ้มป้าย FINISH และเส้นชัยตารางหมากรุกขนาดใหญ่ชัดเจนสวยงาม
+ */
+
+/**
+ * Game 1: NEON KART RACING (ศึกซิ่งคาร์ทสายฟ้า)
+ * - ความยาวสนามแข่งเพิ่มขึ้น 4 เท่า (480 เซกเมนต์, รัศมีสนาม 272 x 176 เมตร)
+ * - มุมมองกล้อง (Player View) ล็อกตรงหลังรถของแต่ละคนอย่างแม่นยำ พร้อมป้าย P1-P4 เหนือรถและกรอบประจำจอ
+ * - แถบ Bar ด้านบนไม่แสดงป้ายไอเทม
+ * - การวางกล่องไอเทมและแผ่นบูสต์ในถนนวางสลับเลน (ซ้าย / กลาง / ขวา / สลับฟันปลา)
+ * - ซุ้มป้าย FINISH และเส้นชัยตารางหมากรุกขนาดใหญ่ชัดเจนสวยงาม
+ */
+
+/**
+ * Game 1: NEON KART RACING (ศึกซิ่งคาร์ทสายฟ้า)
+ * - ความยาวสนามแข่งเพิ่มขึ้น 4 เท่า (480 เซกเมนต์, รัศมีสนาม 272 x 176 เมตร)
+ * - มุมมองกล้อง (Player View) ล็อกตรงหลังรถของแต่ละคนอย่างแม่นยำ พร้อมป้าย P1-P4 เหนือรถและกรอบประจำจอ
+ * - แถบ Bar ด้านบนไม่แสดงป้ายไอเทม
+ * - การวางกล่องไอเทมและแผ่นบูสต์ในถนนวางสลับเลน (ซ้าย / กลาง / ขวา / สลับฟันปลา)
+ * - ซุ้มป้าย FINISH และเส้นชัยตารางหมากรุกขนาดใหญ่ชัดเจนสวยงาม
+ */
+
+/**
+ * Game 1: NEON KART RACING (ศึกซิ่งคาร์ทสายฟ้า)
+ * - ความยาวสนามแข่งเพิ่มขึ้น 4 เท่า (480 เซกเมนต์, รัศมีสนาม 272 x 176 เมตร)
+ * - มุมมองกล้อง (Player View) ล็อกตรงหลังรถของแต่ละคนอย่างแม่นยำ พร้อมป้าย P1-P4 เหนือรถและกรอบประจำจอ
+ * - แถบ Bar ด้านบนไม่แสดงป้ายไอเทม
+ * - การวางกล่องไอเทมและแผ่นบูสต์ในถนนวางสลับเลน (ซ้าย / กลาง / ขวา / สลับฟันปลา)
+ * - ซุ้มป้าย FINISH และเส้นชัยตารางหมากรุกขนาดใหญ่ชัดเจนสวยงาม
+ */
+
+const GRAND_PRIX_RAW_PTS_PX = [
+    [510.0, 72.0], [494.6, 71.8], [466.1, 72.8], [450.4, 71.8], [432.0, 72.0],
+    [410.0, 72.0], [388.0, 72.0], [366.0, 72.0], [344.0, 72.0], [322.0, 72.0],
+    [301.6, 72.6], [275.7, 77.8], [259.2, 86.4], [244.0, 102.1], [233.5, 124.4],
+    [230.4, 137.5], [229.3, 178.7], [230.2, 192.1], [233.2, 216.3], [236.2, 234.9],
+    [240.5, 258.1], [243.4, 284.2], [237.8, 302.9], [220.2, 317.9], [199.7, 327.7],
+    [175.5, 337.7], [154.2, 347.4], [134.5, 357.5], [113.8, 370.9], [95.4, 387.1],
+    [84.3, 400.2], [72.0, 421.5], [64.8, 442.9], [61.4, 465.9], [61.1, 483.9],
+    [64.0, 509.4], [71.4, 532.9], [82.7, 554.0], [95.7, 569.3], [113.3, 584.1],
+    [133.2, 596.6], [151.9, 606.1], [175.0, 616.4], [195.4, 625.0], [219.4, 635.7],
+    [238.1, 645.0], [261.6, 658.8], [278.5, 671.1], [296.6, 685.5], [314.8, 697.0],
+    [335.8, 704.5], [361.6, 708.4], [381.5, 709.0], [408.8, 707.1], [435.9, 702.6],
+    [453.8, 698.8], [475.2, 693.4], [500.4, 686.2], [521.8, 679.5], [543.3, 672.1],
+    [566.4, 664.0], [588.3, 656.5], [610.1, 649.1], [631.0, 642.8], [667.8, 640.6],
+    [683.3, 643.8], [707.3, 652.2], [730.6, 661.2], [747.9, 667.7], [773.1, 677.0],
+    [791.0, 682.8], [812.8, 688.7], [834.6, 693.2], [862.3, 696.3], [884.7, 693.0],
+    [907.1, 684.1], [922.6, 671.7], [934.8, 652.7], [941.7, 633.7], [946.7, 609.3],
+    [948.9, 583.8], [948.7, 569.1], [945.4, 542.3], [940.2, 523.9], [929.6, 501.9],
+    [915.0, 482.0], [901.0, 468.4], [882.6, 455.5], [860.6, 444.2], [841.6, 436.6],
+    [816.2, 431.0], [794.9, 430.2], [746.3, 433.2], [734.2, 434.5], [712.2, 436.5],
+    [689.9, 438.7], [663.6, 441.5], [630.5, 445.0], [592.8, 448.7], [584.1, 449.5],
+    [528.6, 448.9], [518.9, 446.1], [492.2, 436.4], [473.8, 425.6], [457.2, 410.7],
+    [446.8, 394.1], [442.4, 363.0], [449.6, 338.5], [461.1, 321.3], [478.0, 308.5],
+    [497.5, 300.8], [523.4, 297.1], [542.5, 298.3], [567.4, 303.8], [584.2, 309.3],
+    [608.1, 316.5], [629.7, 322.2], [655.5, 328.1], [679.2, 332.7], [702.7, 336.5],
+    [718.5, 338.4], [791.5, 338.5], [803.7, 336.3], [832.9, 328.7], [853.8, 319.3],
+    [872.3, 306.5], [886.2, 292.8], [901.0, 273.6], [912.7, 253.4], [920.6, 232.5],
+    [923.2, 193.7], [921.1, 180.9], [910.2, 154.6], [898.3, 136.2], [884.0, 119.0],
+    [869.8, 105.0], [850.2, 92.2], [830.6, 84.9], [810.2, 80.0], [788.2, 76.6],
+    [749.4, 72.7], [731.0, 72.0], [709.0, 72.0], [687.0, 72.0], [665.0, 72.0],
+    [643.0, 72.0], [621.0, 72.0], [599.0, 72.0], [577.0, 72.0], [555.0, 72.0],
+    [533.0, 72.0]
+];
+
+/**
+ * Game 1: NEON KART RACING (ศึกซิ่งคาร์ทสายฟ้า)
+ * - ความยาวสนามแข่งเพิ่มขึ้น 4 เท่า (480 เซกเมนต์, รัศมีสนาม 272 x 176 เมตร)
+ * - มุมมองกล้อง (Player View) ล็อกตรงหลังรถของแต่ละคนอย่างแม่นยำ พร้อมป้าย P1-P4 เหนือรถและกรอบประจำจอ
+ * - แถบ Bar ด้านบนไม่แสดงป้ายไอเทม
+ * - การวางกล่องไอเทมและแผ่นบูสต์ในถนนวางสลับเลน (ซ้าย / กลาง / ขวา / สลับฟันปลา)
+ * - ซุ้มป้าย FINISH และเส้นชัยตารางหมากรุกขนาดใหญ่ชัดเจนสวยงาม
+ */
+
+/**
+ * Game 1: NEON KART RACING (ศึกซิ่งคาร์ทสายฟ้า)
+ * - ความยาวสนามแข่งเพิ่มขึ้น 4 เท่า (480 เซกเมนต์, รัศมีสนาม 272 x 176 เมตร)
+ * - มุมมองกล้อง (Player View) ล็อกตรงหลังรถของแต่ละคนอย่างแม่นยำ พร้อมป้าย P1-P4 เหนือรถและกรอบประจำจอ
+ * - แถบ Bar ด้านบนไม่แสดงป้ายไอเทม
+ * - การวางกล่องไอเทมและแผ่นบูสต์ในถนนวางสลับเลน (ซ้าย / กลาง / ขวา / สลับฟันปลา)
+ * - ซุ้มป้าย FINISH และเส้นชัยตารางหมากรุกขนาดใหญ่ชัดเจนสวยงาม
+ */
+
+/**
+ * Game 1: NEON KART RACING (ศึกซิ่งคาร์ทสายฟ้า)
+ * - ความยาวสนามแข่งเพิ่มขึ้น 4 เท่า (480 เซกเมนต์, รัศมีสนาม 272 x 176 เมตร)
+ * - มุมมองกล้อง (Player View) ล็อกตรงหลังรถของแต่ละคนอย่างแม่นยำ พร้อมป้าย P1-P4 เหนือรถและกรอบประจำจอ
+ * - แถบ Bar ด้านบนไม่แสดงป้ายไอเทม
+ * - การวางกล่องไอเทมและแผ่นบูสต์ในถนนวางสลับเลน (ซ้าย / กลาง / ขวา / สลับฟันปลา)
+ * - ซุ้มป้าย FINISH และเส้นชัยตารางหมากรุกขนาดใหญ่ชัดเจนสวยงาม
+ */
+
+/**
+ * Game 1: NEON KART RACING (ศึกซิ่งคาร์ทสายฟ้า)
+ * - ความยาวสนามแข่งเพิ่มขึ้น 4 เท่า (480 เซกเมนต์, รัศมีสนาม 272 x 176 เมตร)
+ * - มุมมองกล้อง (Player View) ล็อกตรงหลังรถของแต่ละคนอย่างแม่นยำ พร้อมป้าย P1-P4 เหนือรถและกรอบประจำจอ
+ * - แถบ Bar ด้านบนไม่แสดงป้ายไอเทม
+ * - การวางกล่องไอเทมและแผ่นบูสต์ในถนนวางสลับเลน (ซ้าย / กลาง / ขวา / สลับฟันปลา)
+ * - ซุ้มป้าย FINISH และเส้นชัยตารางหมากรุกขนาดใหญ่ชัดเจนสวยงาม
+ */
+
+const GRAND_PRIX_PTS_PX = [
+    [533.0, 72.0], [510.0, 72.0], [494.6, 71.8], [466.1, 72.8], [450.4, 71.8],
+    [432.0, 72.0], [410.0, 72.0], [388.0, 72.0], [366.0, 72.0], [344.0, 72.0],
+    [322.0, 72.0], [301.6, 72.6], [275.7, 77.8], [259.2, 86.4], [244.0, 102.1],
+    [233.5, 124.4], [230.4, 137.5], [229.3, 178.7], [230.2, 192.1], [233.2, 216.3],
+    [236.2, 234.9], [240.5, 258.1], [243.4, 284.2], [237.8, 302.9], [220.2, 317.9],
+    [199.7, 327.7], [175.5, 337.7], [154.2, 347.4], [134.5, 357.5], [113.8, 370.9],
+    [95.4, 387.1], [84.3, 400.2], [72.0, 421.5], [64.8, 442.9], [61.4, 465.9],
+    [61.1, 483.9], [64.0, 509.4], [71.4, 532.9], [82.7, 554.0], [95.7, 569.3],
+    [113.3, 584.1], [133.2, 596.6], [151.9, 606.1], [175.0, 616.4], [195.4, 625.0],
+    [219.4, 635.7], [238.1, 645.0], [261.6, 658.8], [278.5, 671.1], [296.6, 685.5],
+    [314.8, 697.0], [335.8, 704.5], [361.6, 708.4], [381.5, 709.0], [408.8, 707.1],
+    [435.9, 702.6], [453.8, 698.8], [475.2, 693.4], [500.4, 686.2], [521.8, 679.5],
+    [543.3, 672.1], [566.4, 664.0], [588.3, 656.5], [610.1, 649.1], [631.0, 642.8],
+    [667.8, 640.6], [683.3, 643.8], [707.3, 652.2], [730.6, 661.2], [747.9, 667.7],
+    [773.1, 677.0], [791.0, 682.8], [812.8, 688.7], [834.6, 693.2], [862.3, 696.3],
+    [884.7, 693.0], [907.1, 684.1], [922.6, 671.7], [934.8, 652.7], [941.7, 633.7],
+    [946.7, 609.3], [948.9, 583.8], [948.7, 569.1], [945.4, 542.3], [940.2, 523.9],
+    [929.6, 501.9], [915.0, 482.0], [901.0, 468.4], [882.6, 455.5], [860.6, 444.2],
+    [841.6, 436.6], [816.2, 431.0], [794.9, 430.2], [746.3, 433.2], [734.2, 434.5],
+    [712.2, 436.5], [689.9, 438.7], [663.6, 441.5], [630.5, 445.0], [592.8, 448.7],
+    [584.1, 449.5], [528.6, 448.9], [518.9, 446.1], [492.2, 436.4], [473.8, 425.6],
+    [457.2, 410.7], [446.8, 394.1], [442.4, 363.0], [449.6, 338.5], [461.1, 321.3],
+    [478.0, 308.5], [497.5, 300.8], [523.4, 297.1], [542.5, 298.3], [567.4, 303.8],
+    [584.2, 309.3], [608.1, 316.5], [629.7, 322.2], [655.5, 328.1], [679.2, 332.7],
+    [702.7, 336.5], [718.5, 338.4], [791.5, 338.5], [803.7, 336.3], [832.9, 328.7],
+    [853.8, 319.3], [872.3, 306.5], [886.2, 292.8], [901.0, 273.6], [912.7, 253.4],
+    [920.6, 232.5], [923.2, 193.7], [921.1, 180.9], [910.2, 154.6], [898.3, 136.2],
+    [884.0, 119.0], [869.8, 105.0], [850.2, 92.2], [830.6, 84.9], [810.2, 80.0],
+    [788.2, 76.6], [749.4, 72.7], [731.0, 72.0], [709.0, 72.0], [687.0, 72.0],
+    [665.0, 72.0], [643.0, 72.0], [621.0, 72.0], [599.0, 72.0], [577.0, 72.0],
+    [555.0, 72.0]
+];
+
+class Game1Kart extends GameBase {
     constructor(app, meta) {
         super(app, meta);
         this.karts = [];
@@ -3079,11 +3303,14 @@ class GameBase {
         this.lastCountdownStep = 5;
         this.raceStarted = false;
         this.raceTime = 0;
+        this._disposed = false;
     }
 
     init() {
         super.init();
-        this.scene.fog = new THREE.FogExp2(0x070913, 0.0025);
+        this._disposed = false;
+        this.scene.background = new THREE.Color(0x6eb5e5);
+        this.scene.fog = new THREE.FogExp2(0x6eb5e5, 0.0012);
         this.buildEnvironment();
         this.buildTrack();
         this.spawnKarts();
@@ -3102,46 +3329,20 @@ class GameBase {
     }
 
     dispose() {
+        this._disposed = true;
         this.audio.stopEngine();
         this.audio.stopVictoryMusic();
         super.dispose();
     }
 
     buildEnvironment() {
-        const grid = new THREE.GridHelper(1200, 120, 0x00f0ff, 0x101830);
-        grid.position.y = -0.5;
-        this.scene.add(grid);
+        const hemi = new THREE.HemisphereLight(0xdbeafe, 0x2a4d22, 1.15);
+        this.scene.add(hemi);
 
-        const towerGeo = new THREE.BoxGeometry(1, 1, 1);
-        for (let i = 0; i < 64; i++) {
-            const angle = (i / 64) * Math.PI * 2;
-            const distX = 335 + (i % 4) * 28;
-            const distZ = 240 + (i % 4) * 24;
-            const h = 24 + (i * 9 % 55);
-            const bldgGroup = new THREE.Group();
-
-            const mat = new THREE.MeshStandardMaterial({
-                color: 0x0a1022,
-                roughness: 0.25,
-                metalness: 0.85,
-                emissive: i % 2 === 0 ? 0x003355 : 0x330033,
-                emissiveIntensity: 0.55
-            });
-            const tower = new THREE.Mesh(towerGeo, mat);
-            tower.scale.set(10, h, 10);
-            tower.position.y = h / 2 - 0.5;
-            bldgGroup.add(tower);
-
-            const crownMat = new THREE.MeshBasicMaterial({
-                color: i % 2 === 0 ? 0x00f0ff : 0xff2a6d
-            });
-            const crown = new THREE.Mesh(new THREE.BoxGeometry(10.5, 0.65, 10.5), crownMat);
-            crown.position.y = h - 0.8;
-            bldgGroup.add(crown);
-
-            bldgGroup.position.set(Math.cos(angle) * distX, 0, Math.sin(angle) * distZ);
-            this.scene.add(bldgGroup);
-        }
+        const sun = new THREE.DirectionalLight(0xffffff, 2.1);
+        sun.position.set(45, 95, 65);
+        sun.castShadow = true;
+        this.scene.add(sun);
     }
 
     getTrackPoint(t) {
@@ -3298,165 +3499,54 @@ class GameBase {
     }
 
     buildTrack() {
-        const segments = 480;
+        const TRACK_SCALE = 1.6;
+        const PX_TO_M = 0.12 * TRACK_SCALE;
+        const roadY = 0.08;
+
+        // 1. สร้างเส้นทางหลัก (Centerline) จากพิกัดสนาม Grand Prix Circuit (1:1 กับโมเดล Blender)
+        const rawPts = GRAND_PRIX_PTS_PX.map(([px, py]) => new THREE.Vector3(
+            (px - 512.0) * PX_TO_M,
+            roadY,
+            -(py - 405.5) * PX_TO_M
+        ));
+        const curve = new THREE.CatmullRomCurve3(rawPts, true, "catmullrom", 0.35);
+        const segments = 360;
+        this.trackPoints = curve.getSpacedPoints(segments);
+        this.trackPoints.pop();
+
         for (let i = 0; i < segments; i++) {
-            this.trackPoints.push(this.getTrackPoint(i / segments));
-        }
-
-        const roadGeo = new THREE.BufferGeometry();
-        const positions = [];
-        const uvs = [];
-        const indices = [];
-
-        for (let i = 0; i <= segments; i++) {
-            const p0 = this.trackPoints[i % segments];
+            const p0 = this.trackPoints[i];
             const p1 = this.trackPoints[(i + 1) % segments];
             const tangent = new THREE.Vector3().subVectors(p1, p0).normalize();
             const normal = new THREE.Vector3(-tangent.z, 0, tangent.x);
-            if (i < segments) {
-                this.trackNormals.push(normal.clone());
-            }
-
-            const left = p0.clone().addScaledVector(normal, this.trackWidth * 0.5);
-            const right = p0.clone().addScaledVector(normal, -this.trackWidth * 0.5);
-
-            positions.push(left.x, 0.02, left.z, right.x, 0.02, right.z);
-            uvs.push(0, i * 0.25, 1, i * 0.25);
-
-            if (i < segments) {
-                const base = i * 2;
-                indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
-            }
-
-            if (i % 4 === 0 && i < segments) {
-                const curbColor = i % 8 === 0 ? 0x00f0ff : 0xff2a6d;
-                const curbMat = new THREE.MeshStandardMaterial({
-                    color: curbColor,
-                    emissive: curbColor,
-                    emissiveIntensity: 1.25
-                });
-                const postL = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.55, 1.0), curbMat);
-                postL.position.copy(left).setY(0.28);
-                postL.lookAt(p1.clone().addScaledVector(normal, this.trackWidth * 0.5).setY(0.28));
-                const postR = postL.clone();
-                postR.position.copy(right).setY(0.28);
-                this.scene.add(postL, postR);
-            }
+            this.trackNormals.push(normal);
         }
 
-        roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        roadGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-        roadGeo.setIndex(indices);
-        roadGeo.computeVertexNormals();
-
-        const roadMat = new THREE.MeshStandardMaterial({
-            color: 0x161c2e,
-            roughness: 0.38,
-            metalness: 0.65,
-            side: THREE.DoubleSide
-        });
-        const roadMesh = new THREE.Mesh(roadGeo, roadMat);
-        roadMesh.receiveShadow = true;
-        this.scene.add(roadMesh);
-
-        // ==================== ซุ้มป้าย FINISH และเส้นชัยตารางหมากรุกขนาดใหญ่สวยงาม (อยู่ด้านหน้าจุดออกตัวให้เห็นเต็มป้ายชัดเจน) ====================
-        const finishSegIdx = 5;
-        const startPt = this.trackPoints[finishSegIdx];
-        const nextPt = this.trackPoints[finishSegIdx + 1];
-        const startHeading = Math.atan2(nextPt.x - startPt.x, nextPt.z - startPt.z);
-
-        const archGroup = new THREE.Group();
-        archGroup.position.copy(startPt);
-        archGroup.rotation.y = startHeading;
-
-        // 1. เส้นชัยตารางหมากรุกบนพื้นถนน
-        const checkerTex = this.createCheckeredRoadTexture();
-        const checkerLine = new THREE.Mesh(
-            new THREE.PlaneGeometry(this.trackWidth + 0.4, 3.8),
-            new THREE.MeshBasicMaterial({ map: checkerTex, side: THREE.DoubleSide })
-        );
-        checkerLine.rotation.x = -Math.PI / 2;
-        checkerLine.position.y = 0.05;
-        archGroup.add(checkerLine);
-
-        // 2. เสาโครงถักนีออนขนาดใหญ่ซ้าย-ขวา
-        const pillarDarkMat = new THREE.MeshStandardMaterial({
-            color: 0x121b33,
-            roughness: 0.25,
-            metalness: 0.88
-        });
-        const neonCyanMat = new THREE.MeshStandardMaterial({
-            color: 0x00f0ff,
-            emissive: 0x00f0ff,
-            emissiveIntensity: 1.8
-        });
-        const neonGoldMat = new THREE.MeshStandardMaterial({
-            color: 0xffb800,
-            emissive: 0xffb800,
-            emissiveIntensity: 1.8
-        });
-
-        const gantrySpan = this.trackWidth * 0.56;
-        const gantryHeight = 6.6;
-
-        [-1, 1].forEach((side) => {
-            const pCol = new THREE.Group();
-            pCol.position.set(side * gantrySpan, 0, 0);
-
-            const mainTower = new THREE.Mesh(new THREE.BoxGeometry(1.3, gantryHeight, 1.3), pillarDarkMat);
-            mainTower.position.y = gantryHeight / 2;
-            pCol.add(mainTower);
-
-            const basePlinth = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.8, 2.1), neonCyanMat);
-            basePlinth.position.y = 0.4;
-            pCol.add(basePlinth);
-
-            // วงแหวนไฟนีออนคาดเสา
-            for (let r = 1; r <= 3; r++) {
-                const ring = new THREE.Mesh(
-                    new THREE.BoxGeometry(1.55, 0.26, 1.55),
-                    r % 2 === 0 ? neonGoldMat : neonCyanMat
-                );
-                ring.position.y = r * 1.4;
-                pCol.add(ring);
+        // 2. โหลดโมเดล 3D สนามแข่ง Grand Prix Circuit ที่สร้างจาก Blender (.glb)
+        const gltfLoader = new GLTFLoader();
+        gltfLoader.load(
+            "/models/grand_prix_circuit.glb",
+            (gltf) => {
+                if (!this.scene || this._disposed) return;
+                const circuit = gltf.scene;
+                circuit.scale.setScalar(TRACK_SCALE);
+                circuit.traverse((child) => {
+                    if (!child.isMesh) return;
+                    const n = child.name || "";
+                    if (n === "Collision_Mesh" || n === "Racing_Line" || n.startsWith("Checkpoint_")) {
+                        child.visible = false;
+                    } else {
+                        child.receiveShadow = true;
+                        child.castShadow = n.startsWith("Tree_") || n.startsWith("Finish_") || n.startsWith("Control_") || n.startsWith("Pit_") || n.startsWith("Grandstand_") || n.startsWith("Billboard_") || n.startsWith("Sponsor_");
+                    }
+                });
+                this.scene.add(circuit);
+            },
+            undefined,
+            (err) => {
+                console.warn("Could not load grand_prix_circuit.glb (fallback path active):", err);
             }
-
-            // คริสตัลไฟหมุนบนยอดเสาซุ้มเส้นชัย
-            const beacon = new THREE.Mesh(new THREE.OctahedronGeometry(0.9, 0), neonGoldMat);
-            beacon.position.y = gantryHeight + 1.0;
-            pCol.add(beacon);
-            this.finishArchElements.push(beacon);
-
-            archGroup.add(pCol);
-        });
-
-        // 3. ป้ายบิลบอร์ด FINISH ขนาดใหญ่พิเศษเหนือถนน (เห็นชัดทั้งด้านหน้าและด้านหลัง)
-        const bannerTex = this.createFinishBannerTexture();
-        const bannerWidth = this.trackWidth + 3.4;
-        const bannerHeight = 3.4;
-        const bannerFaceMat = new THREE.MeshBasicMaterial({ map: bannerTex });
-        const bannerRimMat = new THREE.MeshStandardMaterial({
-            color: 0xffb800,
-            emissive: 0xff8800,
-            emissiveIntensity: 1.4,
-            metalness: 0.8,
-            roughness: 0.2
-        });
-        const bannerBox = new THREE.Mesh(
-            new THREE.BoxGeometry(bannerWidth, bannerHeight, 1.0),
-            [bannerRimMat, bannerRimMat, bannerRimMat, bannerRimMat, bannerFaceMat, bannerFaceMat]
         );
-        bannerBox.position.y = gantryHeight - 1.2;
-        archGroup.add(bannerBox);
-
-        // คานนีออนคู่บนและล่างป้าย FINISH
-        const topBeam = new THREE.Mesh(new THREE.BoxGeometry(bannerWidth + 0.8, 0.32, 1.25), neonCyanMat);
-        topBeam.position.y = gantryHeight + 0.65;
-        const botBeam = new THREE.Mesh(new THREE.BoxGeometry(bannerWidth + 0.8, 0.32, 1.25), neonGoldMat);
-        botBeam.position.y = gantryHeight - 3.05;
-        archGroup.add(topBeam, botBeam);
-
-        this.scene.add(archGroup);
 
         // ==================== แผ่นบูสต์ความเร็ว วางสลับซ้าย - กลาง - ขวา ====================
         const boostOffsets = [-3.6, 3.6, 0.0, -3.2, 3.2];
@@ -3516,17 +3606,6 @@ class GameBase {
                 this.scene.add(boxMesh);
                 this.itemBoxes.push({ pos: boxPos.clone(), mesh: boxMesh, cooldown: 0 });
             });
-        }
-
-        // ==================== ซุ้มสนามแข่ง 3D และสภาพแวดล้อมจาก Blender (.glb) ====================
-        for (let i = 60; i < segments - 40; i += 80) {
-            const pt = this.trackPoints[i];
-            const nextPt = this.trackPoints[(i + 1) % segments];
-            const arch = createBlenderTrackArch();
-            arch.position.set(pt.x, 0, pt.z);
-            arch.rotation.y = Math.atan2(nextPt.x - pt.x, nextPt.z - pt.z);
-            arch.scale.setScalar(0.82);
-            this.scene.add(arch);
         }
     }
 
@@ -3621,7 +3700,10 @@ class GameBase {
             this.bannerTimer -= dt;
         }
 
-        if (this.winner !== null) return;
+        if (this.winner !== null) {
+            this.audio.stopEngine();
+            return;
+        }
 
         for (const box of this.itemBoxes) {
             box.mesh.rotation.y += dt * 1.8;
@@ -3880,9 +3962,11 @@ class GameBase {
             }
         }
 
-        // อัปเดตเสียงเครื่องยนต์ตามความเร็วรถผู้เล่นหลัก (หรือรถ P1)
+        // อัปเดตเสียงเครื่องยนต์ตามความเร็วรถผู้เล่นหลัก (หยุดเมื่อจบการแข่งขัน)
         const leadHuman = this.karts.find((k) => this.input.pads[k.index]?.connected) || this.karts[0];
-        if (leadHuman) {
+        if (this.winner) {
+            this.audio.stopEngine();
+        } else if (leadHuman) {
             const speedRatio = Math.abs(leadHuman.speed) / leadHuman.maxSpeed;
             this.audio.updateEngine(speedRatio, leadHuman.boostTimer > 0, leadHuman.driftDir !== 0);
         }
@@ -3911,31 +3995,69 @@ class GameBase {
         ranked.forEach((k, idx) => rankMap.set(k.index, idx + 1));
 
         const segCount = this.trackPoints.length;
-        // แถบ Bar ด้านบน: แสดงอันดับ รอบที่แข่ง และความเร็วชัดเจน
-        const cards = this.karts.map((k) => {
+        const getProgressUnits = (k) => {
+            if (k.finished) return this.totalLaps * segCount + 1;
+            const curPt = this.trackPoints[k.waypointIdx];
+            const nextPt = this.trackPoints[(k.waypointIdx + 1) % segCount];
+            const segDist = curPt.distanceTo(nextPt) || 1;
+            const rem = k.mesh.position.distanceTo(nextPt);
+            const frac = 1 - THREE.MathUtils.clamp(rem / segDist, 0, 1);
+            return (k.lap - 1) * segCount + k.waypointIdx + frac;
+        };
+
+        const leader = ranked[0];
+        const leaderProg = leader ? getProgressUnits(leader) : 0;
+        const avgSegLen = segCount > 1
+            ? this.trackPoints[0].distanceTo(this.trackPoints[1]) || 4.0
+            : 4.0;
+        const refSpeed = Math.max(22, Math.abs(leader?.speed || 26));
+
+        const standingRows = ranked.map((k, idx) => {
             const pad = this.input.pads[k.index];
             const roleTag = pad && pad.connected ? 'จอย' : 'บอท';
-            const spd = Math.round(Math.abs(k.speed) * 4.2);
-            const rank = rankMap.get(k.index) || 1;
-            const curLap = Math.min(this.totalLaps, k.lap);
-            const lapStr = curLap === this.totalLaps
-                ? `<span style="color:#ff2a6d;font-weight:900;">🔥 รอบสุดท้าย ${curLap}/${this.totalLaps}</span>`
-                : `รอบที่ ${curLap}/${this.totalLaps}`;
+            const rank = idx + 1;
+            let gapText = 'LEADER';
+            let gapColor = '#05ffa1';
+            if (idx > 0) {
+                if (!this.raceStarted) {
+                    gapText = '+0.00s';
+                    gapColor = '#94a3b8';
+                } else {
+                    const gapUnits = Math.max(0, leaderProg - getProgressUnits(k));
+                    const gapSec = (gapUnits * avgSegLen) / refSpeed;
+                    gapText = `+${gapSec.toFixed(2)}s`;
+                    gapColor = gapSec < 1.5 ? '#ffb800' : '#e2e8f0';
+                }
+            }
             return `
-                <div class="hud-pill" style="border-color:${k.colorCss}">
-                    <span class="hud-rank-badge">#${rank}</span>
-                    <strong style="color:${k.colorCss}">P${k.index + 1} (${roleTag})</strong>
-                    <span>${lapStr}</span>
-                    <span>${spd} กม./ชม.</span>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:3px 0;font-size:0.82rem;font-weight:800;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span style="min-width:22px;color:${rank === 1 ? '#ffd700' : '#94a3b8'};">#${rank}</span>
+                        <span style="width:8px;height:8px;border-radius:50%;background:${k.colorCss};display:inline-block;"></span>
+                        <span style="color:${k.colorCss};">P${k.index + 1} <span style="font-weight:600;color:#94a3b8;font-size:0.74rem;">(${roleTag})</span></span>
+                    </div>
+                    <span style="color:${gapColor};font-variant-numeric:tabular-nums;">${gapText}</span>
                 </div>
             `;
         }).join('');
 
-        // ป้ายกำกับหน้าจอแยกของแต่ละคน (Split-Screen Viewport Indicator) เพื่อให้รู้ว่าจอไหนคือรถของใคร
+        const liveStandingHtml = !this.winner && !this.showSummary ? `
+            <div style="position:fixed;top:12px;right:16px;z-index:26;background:rgba(5,10,24,0.88);border:1.5px solid rgba(0,240,255,0.45);border-radius:12px;padding:8px 14px;min-width:210px;box-shadow:0 6px 24px rgba(0,0,0,0.55);pointer-events:none;backdrop-filter:blur(6px);">
+                <div style="font-size:0.72rem;font-weight:900;letter-spacing:1px;color:#00f0ff;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.12);padding-bottom:3px;">
+                    🏁 LIVE STANDING
+                </div>
+                ${standingRows}
+            </div>
+        ` : '';
+        // ป้ายกำกับหน้าจอของแต่ละคัน (แสดงชื่อผู้เล่น รอบ อันดับ และความเร็วที่มุมล่างซ้ายของแต่ละจอ)
         const splitCount = this.karts.length;
         let viewportOverlays = '';
-        if (splitCount > 1 && !this.winner && !this.showSummary) {
-            const layouts = splitCount === 2
+        if (!this.winner && !this.showSummary) {
+            const layouts = splitCount === 1
+                ? [
+                    { top: '72px', left: '20px', height: 'calc(100vh - 92px)', width: 'calc(100vw - 40px)', noBorder: true }
+                ]
+                : splitCount === 2
                 ? [
                     { top: '72px', left: '24px', height: 'calc(50vh - 80px)', width: 'calc(100vw - 48px)' },
                     { top: 'calc(50vh + 12px)', left: '24px', height: 'calc(50vh - 24px)', width: 'calc(100vw - 48px)' }
@@ -3955,11 +4077,24 @@ class GameBase {
 
             viewportOverlays = this.karts.map((k, idx) => {
                 const box = layouts[idx];
+                const pad = this.input.pads[k.index];
+                const roleTag = pad && pad.connected ? 'จอย' : 'บอท';
+                const curLap = Math.min(this.totalLaps, k.lap);
+                const lapStr = curLap === this.totalLaps
+                    ? `<span style="color:#ff2a6d;font-weight:900;">🔥 รอบสุดท้าย ${curLap}/${this.totalLaps}</span>`
+                    : `รอบที่ ${curLap}/${this.totalLaps}`;
                 const rank = rankMap.get(k.index) || 1;
+                const spd = Math.round(Math.abs(k.speed) * 4.2);
+                const borderStyle = box.noBorder
+                    ? ''
+                    : `border:2px solid ${k.colorCss};border-radius:12px;box-shadow:inset 0 0 18px ${k.colorCss}33;`;
                 return `
-                    <div style="position:fixed;top:${box.top};left:${box.left};width:${box.width};height:${box.height};border:2px solid ${k.colorCss};border-radius:12px;pointer-events:none;box-shadow:inset 0 0 18px ${k.colorCss}33;">
-                        <div style="position:absolute;bottom:10px;left:12px;background:rgba(5,10,24,0.86);border:1px solid ${k.colorCss};color:${k.colorCss};padding:4px 12px;border-radius:8px;font-weight:900;font-size:0.84rem;">
-                            🎥 มุมมองรถ P${k.index + 1} (อันดับ #${rank})
+                    <div style="position:fixed;top:${box.top};left:${box.left};width:${box.width};height:${box.height};${borderStyle}pointer-events:none;">
+                        <div style="position:absolute;bottom:10px;left:12px;background:rgba(5,10,24,0.88);border:1px solid ${k.colorCss};color:${k.colorCss};padding:6px 14px;border-radius:10px;font-weight:900;font-size:0.88rem;display:flex;align-items:center;gap:10px;">
+                            <span>🎥 P${k.index + 1} (${roleTag})</span>
+                            <span style="color:#e2e8f0;">${lapStr}</span>
+                            <span style="color:#fff;">อันดับ #${rank}</span>
+                            <span style="color:#05ffa1;">⚡ ${spd} กม./ชม.</span>
                         </div>
                     </div>
                 `;
@@ -4020,7 +4155,7 @@ class GameBase {
         let bannerHtml = '';
         if (this.bannerTimer > 0 && this.bannerMsg && !this.winner) {
             bannerHtml = `
-                <div style="position:fixed;top:86px;left:50%;transform:translateX(-50%);z-index:25;background:rgba(5,10,24,0.92);border:2px solid ${this.bannerColor};color:${this.bannerColor};padding:10px 26px;border-radius:999px;font-weight:900;font-size:1.05rem;box-shadow:0 0 24px ${this.bannerColor}66;pointer-events:none;white-space:nowrap;">
+                <div class="hud-pill" style="background:rgba(5,10,24,0.92);border:2px solid ${this.bannerColor};color:${this.bannerColor};padding:6px 18px;border-radius:999px;font-weight:900;font-size:0.95rem;box-shadow:0 0 18px ${this.bannerColor}55;white-space:nowrap;">
                     ${this.bannerMsg}
                 </div>
             `;
@@ -4033,10 +4168,10 @@ class GameBase {
         this.setHUD(`
             <div class="hud-top-row">
                 <div class="hud-timer">🏁 แข่ง ${this.totalLaps} รอบ (เข้าเส้นชัยจบเกม) | ${timeLabel}</div>
-                ${cards}
+                ${bannerHtml}
             </div>
+            ${liveStandingHtml}
             ${countdownHtml}
-            ${bannerHtml}
             ${viewportOverlays}
             ${summaryHtml}
         `);
@@ -4089,17 +4224,6 @@ class GameBase {
     }
 }
 
-        // ==================== games/game2.js ====================
-/**
- * Game 2: ARENA BLASTER (สมรภูมิปืนเลเซอร์ไซเบอร์)
- * - ปรับความเสียหายเมื่อโดนยิง: พลังชีวิตลดลงครั้งละ 10% (10 HP จาก 100 HP)
- * - เมื่อโดนยิงตาย: แสดงแบนเนอร์แจ้งเตือนการสังหารชัดเจน (ใครยิงใครตาย, สังหารครั้งที่เท่าไหร่, เวลานับถอยหลังเกิดใหม่ 1.5 วินาที) พร้อมเอฟเฟกต์ตัวละครล้มและป้ายสถานะเหนือหัว
- * - แสดงผลสรุปสถิติของผู้เข้าแข่งขันและอันดับที่ได้
- */
-
-
-
-
 class Game2Blaster extends GameBase {
     constructor(app, meta) {
         super(app, meta);
@@ -4122,56 +4246,118 @@ class Game2Blaster extends GameBase {
         this.spawnFighters();
     }
 
-    buildArena() {
-        const floorMat = new THREE.MeshStandardMaterial({
-            color: 0x0f1526,
-            roughness: 0.35,
-            metalness: 0.7
-        });
-        const floor = new THREE.Mesh(new THREE.BoxGeometry(this.arenaSize * 2, 1, this.arenaSize * 2), floorMat);
-        floor.position.y = -0.5;
-        floor.receiveShadow = true;
-        this.scene.add(floor);
+    createBillboardAdTexture(title, subtitle, bgCss, accentCss) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 192;
+        const ctx = canvas.getContext('2d');
 
+        const grad = ctx.createLinearGradient(0, 0, 512, 192);
+        grad.addColorStop(0, '#070b18');
+        grad.addColorStop(0.5, bgCss);
+        grad.addColorStop(1, '#070b18');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 512, 192);
+
+        ctx.strokeStyle = accentCss;
+        ctx.lineWidth = 8;
+        ctx.strokeRect(8, 8, 496, 176);
+
+        ctx.fillStyle = accentCss;
+        ctx.font = 'bold 44px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(title, 256, 76);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.fillText(subtitle, 256, 134);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
+    }
+
+    buildArena() {
         const grid = new THREE.GridHelper(this.arenaSize * 2, 24, 0xff2a6d, 0x1e2942);
-        grid.position.y = 0.02;
+        grid.position.y = 0.03;
         this.scene.add(grid);
 
-        const pillarMat = new THREE.MeshStandardMaterial({
-            color: 0x1c2541,
-            roughness: 0.25,
-            metalness: 0.85
+        // Register collision boxes matching Blender arena_blaster.glb obstacles
+        this.obstacles.push({ x: 0, z: 0, halfX: 2.75, halfZ: 2.75 });
+        this.obstacles.push({ x: 0, z: -13, halfX: 4.1, halfZ: 1.45 });
+        this.obstacles.push({ x: 0, z: 13, halfX: 4.1, halfZ: 1.45 });
+        this.obstacles.push({ x: 13, z: 0, halfX: 1.45, halfZ: 4.1 });
+        this.obstacles.push({ x: -13, z: 0, halfX: 1.45, halfZ: 4.1 });
+
+        [[-9.5, -9.5], [9.5, -9.5], [-9.5, 9.5], [9.5, 9.5]].forEach(([x, z]) => {
+            this.obstacles.push({ x, z, halfX: 2.2, halfZ: 2.2 });
         });
-        const neonMat = new THREE.MeshStandardMaterial({
-            color: 0x00f0ff,
-            emissive: 0x00f0ff,
-            emissiveIntensity: 1.3
+        [[-17.5, -6.5], [17.5, -6.5], [-17.5, 6.5], [17.5, 6.5]].forEach(([x, z]) => {
+            this.obstacles.push({ x, z, halfX: 1.35, halfZ: 1.35 });
         });
 
-        const coords = [
-            [-10, -10], [10, -10], [-10, 10], [10, 10],
-            [0, -13], [0, 13], [-13, 0], [13, 0]
+        // Fallback floor in case GLB is still loading or blocked on file://
+        const fallbackFloor = new THREE.Mesh(
+            new THREE.BoxGeometry(this.arenaSize * 2, 1, this.arenaSize * 2),
+            new THREE.MeshStandardMaterial({ color: 0x0f1526, roughness: 0.35, metalness: 0.7 })
+        );
+        fallbackFloor.position.y = -0.52;
+        fallbackFloor.receiveShadow = true;
+        this.scene.add(fallbackFloor);
+
+        const ads = [
+            ['MINI CONSOLE 3D', 'NEXT-GEN PARTY GAMING', '#112a4a', '#00f0ff'],
+            ['PS3 WIRELESS', '60Hz ESP32 BRIDGE', '#2a1038', '#ff2a6d'],
+            ['CYBER BLASTER', 'ARENA CHAMPIONSHIP', '#0c2b2f', '#00ffa3'],
+            ['NEON ENERGY', 'MAX SHIELD +20 HP', '#331c08', '#ffaa00'],
+            ['HYPER LASER', 'RAPID FIRE OVERDRIVE', '#1b1440', '#a855f7'],
+            ['TURBO DASH', 'PRESS L1 / R1 TO DODGE', '#0f293d', '#38bdf8'],
+            ['TRIPLE SHOT', 'SPREAD CANNON MK-II', '#380d22', '#fb7185'],
+            ['CYBER CORE', 'CONTROL THE CENTER', '#0c2e2c', '#2dd4bf'],
+            ['PIXEL LABS', 'BLENDER 3D ARENA', '#291a08', '#facc15'],
+            ['ESP32-S3 HUB', '4-PLAYER MULTIPLAY', '#10213e', '#60a5fa'],
+            ['ARENA PRO', '5 HP TACTICAL MODE', '#2e0f2d', '#f472b6'],
+            ['NEXUS TECH', 'SPONSORED BY ANTIGRAVITY', '#0d2636', '#00f0ff']
         ];
-        coords.forEach(([x, z]) => {
-            const pGroup = new THREE.Group();
-            const core = new THREE.Mesh(new THREE.BoxGeometry(3.0, 3.2, 3.0), pillarMat);
-            core.position.y = 1.6;
-            core.castShadow = true;
-            core.receiveShadow = true;
-            pGroup.add(core);
 
-            const basePlinth = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.4, 3.4), pillarMat);
-            basePlinth.position.y = 0.2;
-            pGroup.add(basePlinth);
+        const gltfLoader = new GLTFLoader();
+        const modelUrl = window.location.protocol === 'file:'
+            ? 'public/models/arena_blaster.glb'
+            : '/models/arena_blaster.glb';
 
-            const trimBand = new THREE.Mesh(new THREE.BoxGeometry(3.15, 0.22, 3.15), neonMat);
-            trimBand.position.y = 2.6;
-            pGroup.add(trimBand);
-
-            pGroup.position.set(x, 0, z);
-            this.scene.add(pGroup);
-            this.obstacles.push({ x, z, half: 2.1 });
-        });
+        gltfLoader.load(
+            modelUrl,
+            (gltf) => {
+                if (!this.scene || this._disposed) return;
+                const arena = gltf.scene;
+                arena.traverse((child) => {
+                    if (!child.isMesh) return;
+                    const name = child.name || '';
+                    if (name.startsWith('Billboard_Screen_')) {
+                        const idx = parseInt(name.replace('Billboard_Screen_', ''), 10) || 0;
+                        const ad = ads[idx % ads.length];
+                        const tex = this.createBillboardAdTexture(ad[0], ad[1], ad[2], ad[3]);
+                        child.material = new THREE.MeshStandardMaterial({
+                            map: tex,
+                            emissive: 0xffffff,
+                            emissiveMap: tex,
+                            emissiveIntensity: 0.9,
+                            roughness: 0.25,
+                            metalness: 0.1
+                        });
+                    } else {
+                        child.receiveShadow = true;
+                        child.castShadow = name !== 'Arena_Floor';
+                    }
+                });
+                this.scene.add(arena);
+            },
+            undefined,
+            (err) => {
+                console.warn('Could not load arena_blaster.glb, using fallback geometry:', err);
+            }
+        );
     }
 
     /**
@@ -4435,13 +4621,15 @@ class Game2Blaster extends GameBase {
             f.mesh.position.z = THREE.MathUtils.clamp(f.mesh.position.z, -this.arenaSize + 1, this.arenaSize - 1);
 
             for (const obs of this.obstacles) {
+                const hx = obs.halfX ?? obs.half;
+                const hz = obs.halfZ ?? obs.half;
                 const dx = f.mesh.position.x - obs.x;
                 const dz = f.mesh.position.z - obs.z;
-                if (Math.abs(dx) < obs.half && Math.abs(dz) < obs.half) {
-                    if (Math.abs(dx) > Math.abs(dz)) {
-                        f.mesh.position.x = obs.x + Math.sign(dx) * obs.half;
+                if (Math.abs(dx) < hx && Math.abs(dz) < hz) {
+                    if (Math.abs(dx) / hx > Math.abs(dz) / hz) {
+                        f.mesh.position.x = obs.x + Math.sign(dx) * hx;
                     } else {
-                        f.mesh.position.z = obs.z + Math.sign(dz) * obs.half;
+                        f.mesh.position.z = obs.z + Math.sign(dz) * hz;
                     }
                 }
             }
@@ -4499,8 +4687,10 @@ class Game2Blaster extends GameBase {
 
             if (!hit) {
                 for (const obs of this.obstacles) {
-                    if (Math.abs(b.mesh.position.x - obs.x) < obs.half &&
-                        Math.abs(b.mesh.position.z - obs.z) < obs.half) {
+                    const hx = obs.halfX ?? obs.half;
+                    const hz = obs.halfZ ?? obs.half;
+                    if (Math.abs(b.mesh.position.x - obs.x) < hx &&
+                        Math.abs(b.mesh.position.z - obs.z) < hz) {
                         hit = true;
                         this.particles.emit(b.mesh.position, { x: 0, y: 2, z: 0 }, b.owner.colorHex, 0.3, 0.25, 6, 4);
                         break;
@@ -4514,8 +4704,8 @@ class Game2Blaster extends GameBase {
                         const dist = Math.hypot(b.mesh.position.x - target.mesh.position.x, b.mesh.position.z - target.mesh.position.z);
                         if (dist < 1.05) {
                             hit = true;
-                            // ลดพลังชีวิตครั้งละ 10% (10 HP จากเต็ม 100 HP)
-                            const dmg = 10;
+                            // ลดพลังชีวิตครั้งละ 5% (5 HP จากเต็ม 100 HP)
+                            const dmg = 5;
                             target.hp = Math.max(0, target.hp - dmg);
                             b.owner.damageDealt += dmg;
                             b.owner.shotsHit++;
@@ -4678,6 +4868,27 @@ class Game2Blaster extends GameBase {
 
 
 
+/**
+ * Game 3: SUMO BOTS (ศึกหุ่นซูโม่ชนกระเด็น)
+ * - กำหนดเวลาการแข่งขัน 2 นาที (120 วินาที) พร้อมตัวนับเวลาถอยหลังบนหน้าจอ
+ * - สร้างจำนวนหุ่นซูโม่ตามจำนวนผู้เล่นที่เลือกจริง
+ * - แสดงผลสรุปสถิติของผู้เข้าแข่งขันและอันดับที่ได้เมื่อจบเกม
+ */
+
+/**
+ * Game 3: SUMO BOTS (ศึกหุ่นซูโม่ชนกระเด็น)
+ * - กำหนดเวลาการแข่งขัน 2 นาที (120 วินาที) พร้อมตัวนับเวลาถอยหลังบนหน้าจอ
+ * - สร้างจำนวนหุ่นซูโม่ตามจำนวนผู้เล่นที่เลือกจริง
+ * - แสดงผลสรุปสถิติของผู้เข้าแข่งขันและอันดับที่ได้เมื่อจบเกม
+ */
+
+/**
+ * Game 3: SUMO BOTS (ศึกหุ่นซูโม่ชนกระเด็น)
+ * - กำหนดเวลาการแข่งขัน 2 นาที (120 วินาที) พร้อมตัวนับเวลาถอยหลังบนหน้าจอ
+ * - สร้างจำนวนหุ่นซูโม่ตามจำนวนผู้เล่นที่เลือกจริง
+ * - แสดงผลสรุปสถิติของผู้เข้าแข่งขันและอันดับที่ได้เมื่อจบเกม
+ */
+
 class Game3Sumo extends GameBase {
     constructor(app, meta) {
         super(app, meta);
@@ -4706,14 +4917,46 @@ class Game3Sumo extends GameBase {
 
         const bouncyMat = new CANNON.Material('sumoBot');
         const contact = new CANNON.ContactMaterial(bouncyMat, bouncyMat, {
-            friction: 0.05,
-            restitution: 1.25
+            friction: 0.2,
+            restitution: 0.85
         });
         this.world.addContactMaterial(contact);
         this.botMaterial = bouncyMat;
 
         this.buildRings();
         this.spawnBots();
+    }
+
+    createBillboardAdTexture(title, subtitle, bgCss, accentCss) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 192;
+        const ctx = canvas.getContext('2d');
+
+        const grad = ctx.createLinearGradient(0, 0, 512, 192);
+        grad.addColorStop(0, '#070b18');
+        grad.addColorStop(0.5, bgCss);
+        grad.addColorStop(1, '#070b18');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 512, 192);
+
+        ctx.strokeStyle = accentCss;
+        ctx.lineWidth = 8;
+        ctx.strokeRect(8, 8, 496, 176);
+
+        ctx.fillStyle = accentCss;
+        ctx.font = 'bold 42px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(title, 256, 76);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.fillText(subtitle, 256, 134);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
     }
 
     buildRings() {
@@ -4752,7 +4995,7 @@ class Game3Sumo extends GameBase {
             ringGroup.add(rim);
 
             this.scene.add(ringGroup);
-            this.rings.push({ mesh: ringGroup, surfaceMat: mat, outer: r.outer, active: true, falling: false, idx });
+            this.rings.push({ mesh: ringGroup, fallbackMeshes: [topSurface, rim], surfaceMat: mat, outer: r.outer, active: true, falling: false, idx });
         });
 
         const groundShape = new CANNON.Cylinder(this.arenaRadius, this.arenaRadius, 2.0, 18);
@@ -4763,6 +5006,61 @@ class Game3Sumo extends GameBase {
         const voidGrid = new THREE.GridHelper(120, 40, 0xff2a6d, 0x220015);
         voidGrid.position.y = -10;
         this.scene.add(voidGrid);
+
+        const ads = [
+            ['SUMO BOTS 3D', 'BLENDER CYBER STADIUM', '#112a4a', '#00f0ff'],
+            ['PS3 WIRELESS', '60Hz ESP32 BRIDGE', '#2a1038', '#ff2a6d'],
+            ['MINI CONSOLE 3D', '4-PLAYER PARTY ARENA', '#0c2b2f', '#00ffa3'],
+            ['GRAVITY SHOCK', 'COLLECT ITEM TO BLAST', '#331c08', '#ffaa00'],
+            ['TURBO DASH', 'PRESS X / SQUARE / R1', '#1b1440', '#a855f7'],
+            ['3 LIVES MODE', 'CONTROL & KNOCKOUT', '#380d22', '#fb7185']
+        ];
+
+        const gltfLoader = new GLTFLoader();
+        const modelUrl = window.location.protocol === 'file:'
+            ? 'public/models/sumo_arena.glb'
+            : '/models/sumo_arena.glb';
+
+        gltfLoader.load(
+            modelUrl,
+            (gltf) => {
+                if (!this.scene || this._disposed) return;
+                const arena = gltf.scene;
+                const children = [...arena.children];
+                children.forEach((child) => {
+                    const name = child.name || '';
+                    if (name.startsWith('SumoRing_0_')) {
+                        this.rings[0]?.mesh.add(child);
+                    } else if (name.startsWith('SumoRing_1_')) {
+                        this.rings[1]?.mesh.add(child);
+                    } else if (name.startsWith('SumoRing_2_')) {
+                        this.rings[2]?.mesh.add(child);
+                    } else if (name.startsWith('Billboard_Screen_')) {
+                        const idx = parseInt(name.replace('Billboard_Screen_', ''), 10) || 0;
+                        const ad = ads[idx % ads.length];
+                        const tex = this.createBillboardAdTexture(ad[0], ad[1], ad[2], ad[3]);
+                        child.material = new THREE.MeshStandardMaterial({
+                            map: tex,
+                            emissive: 0xffffff,
+                            emissiveMap: tex,
+                            emissiveIntensity: 0.9,
+                            roughness: 0.25,
+                            metalness: 0.1
+                        });
+                        this.scene.add(child);
+                    } else {
+                        this.scene.add(child);
+                    }
+                });
+                this.rings.forEach((r) => {
+                    r.fallbackMeshes.forEach((m) => { m.visible = false; });
+                });
+            },
+            undefined,
+            (err) => {
+                console.warn('Could not load sumo_arena.glb, using fallback rings:', err);
+            }
+        );
     }
 
     spawnBots() {
@@ -4772,21 +5070,23 @@ class Game3Sumo extends GameBase {
         for (let i = 0; i < totalBots; i++) {
             const angle = (i / totalBots) * Math.PI * 2;
             const col = Config.players.colors[i];
-            const group = createSumoMech(col.hex, 1.15);
+            const group = createRocketCar(col.hex);
+            group.scale.setScalar(1.05);
 
             const sx = Math.cos(angle) * 5.5;
             const sz = Math.sin(angle) * 5.5;
-            group.position.set(sx, 1.5, sz);
+            group.position.set(sx, 0.85, sz);
             this.scene.add(group);
 
             const body = new CANNON.Body({
                 mass: 5.0,
-                shape: new CANNON.Sphere(1.15),
+                shape: new CANNON.Box(new CANNON.Vec3(1.05, 0.75, 1.75)),
                 material: this.botMaterial,
-                linearDamping: 0.35,
-                angularDamping: 0.4
+                linearDamping: 0.65,
+                angularDamping: 0.9,
+                fixedRotation: true
             });
-            body.position.set(sx, 1.5, sz);
+            body.position.set(sx, 0.85, sz);
 
             const botRecord = {
                 index: i,
@@ -4794,6 +5094,9 @@ class Game3Sumo extends GameBase {
                 mesh: group,
                 body,
                 alive: true,
+                lives: 3,
+                yaw: 0,
+                respawnInvuln: 0,
                 survivalTime: 0,
                 hits: 0,
                 dashesUsed: 0,
@@ -4824,6 +5127,7 @@ class Game3Sumo extends GameBase {
     getRankedBots() {
         return [...this.bots].sort((a, b) => {
             if (a.alive !== b.alive) return a.alive ? -1 : 1;
+            if (b.lives !== a.lives) return b.lives - a.lives;
             if (!a.alive && !b.alive) {
                 return b.survivalTime - a.survivalTime;
             }
@@ -4896,6 +5200,7 @@ class Game3Sumo extends GameBase {
 
         this.bots.forEach((b) => {
             if (b.hitCooldown > 0) b.hitCooldown -= dt;
+            if (b.respawnInvuln > 0) b.respawnInvuln -= dt;
             if (!b.alive) return;
             b.survivalTime = this.elapsed;
             if (b.dashCooldown > 0) b.dashCooldown -= dt;
@@ -4928,8 +5233,17 @@ class Game3Sumo extends GameBase {
             let fx = 0, fz = 0, dash = false;
 
             if (isHuman) {
-                fx = pad.lx;
-                fz = pad.ly;
+                const rawX = Math.abs(pad.lx) > 0.12 ? pad.lx : 0;
+                const rawZ = Math.abs(pad.ly) > 0.12 ? pad.ly : 0;
+                const dpadX = (pad.right ? 1 : 0) - (pad.left ? 1 : 0);
+                const dpadZ = (pad.down ? 1 : 0) - (pad.up ? 1 : 0);
+                fx = dpadX !== 0 ? dpadX : rawX;
+                fz = dpadZ !== 0 ? dpadZ : rawZ;
+                const mag = Math.hypot(fx, fz);
+                if (mag > 1) {
+                    fx /= mag;
+                    fz /= mag;
+                }
                 dash = pad.justPressed.cross || pad.justPressed.square || pad.justPressed.r1;
             } else {
                 const distFromCenter = Math.hypot(b.body.position.x, b.body.position.z);
@@ -4949,15 +5263,28 @@ class Game3Sumo extends GameBase {
                 }
             }
 
-            b.body.applyForce(new CANNON.Vec3(fx * 95, 0, fz * 95), b.body.position);
+            b.body.wakeUp();
+            b.body.applyForce(new CANNON.Vec3(fx * 130, 0, fz * 130), b.body.position);
+
+            if (Math.hypot(fx, fz) > 0.12) {
+                b.yaw = Math.atan2(fx, fz);
+                b.body.quaternion.setFromEuler(0, b.yaw, 0);
+            }
+            const ud = b.mesh.userData;
+            if (ud && ud.wheels) {
+                const spd = Math.hypot(b.body.velocity.x, b.body.velocity.z);
+                ud.wheels.forEach((w) => {
+                    w.spinMesh.rotation.x += spd * dt * 1.8;
+                });
+            }
 
             if (dash && b.dashCooldown <= 0) {
-                b.dashCooldown = 1.6;
+                b.dashCooldown = 1.4;
                 b.dashesUsed++;
                 const dirLen = Math.hypot(fx, fz) || 1;
-                const ix = (fx / dirLen) * 68;
-                const iz = (fz / dirLen) * 68;
-                b.body.applyImpulse(new CANNON.Vec3(ix, 4, iz), b.body.position);
+                const ix = (fx / dirLen) * 42;
+                const iz = (fz / dirLen) * 42;
+                b.body.applyImpulse(new CANNON.Vec3(ix, 2, iz), b.body.position);
                 this.audio.boost();
                 this.particles.emit(b.mesh.position, { x: 0, y: 2, z: 0 }, b.colorHex, 0.5, 0.35, 16, 6);
             }
@@ -4973,15 +5300,26 @@ class Game3Sumo extends GameBase {
 
         this.bots.forEach((b) => {
             b.mesh.position.copy(b.body.position);
-            b.mesh.quaternion.copy(b.body.quaternion);
+            b.mesh.rotation.set(0, b.yaw, 0);
 
             if (b.alive && b.body.position.y < -5.5) {
-                b.alive = false;
-                b.survivalTime = this.elapsed;
+                b.lives--;
                 this.audio.explosion();
-                this.graphics.triggerShake(0.6);
-                this.particles.explode(b.mesh.position, b.colorHex, 60, 12);
-                this.input.rumble(b.index, 255, 255, 450);
+                this.graphics.triggerShake(0.5);
+                this.particles.explode(b.mesh.position, b.colorHex, 50, 10);
+                this.input.rumble(b.index, 255, 255, 400);
+
+                if (b.lives > 0) {
+                    const ang = (b.index / Math.max(1, this.bots.length)) * Math.PI * 2;
+                    b.body.position.set(Math.cos(ang) * 2.5, 2.8, Math.sin(ang) * 2.5);
+                    b.body.velocity.set(0, 0, 0);
+                    b.body.angularVelocity.set(0, 0, 0);
+                    b.respawnInvuln = 1.5;
+                } else {
+                    b.alive = false;
+                    b.survivalTime = this.elapsed;
+                    b.mesh.visible = false;
+                }
             }
         });
 
@@ -5010,7 +5348,7 @@ class Game3Sumo extends GameBase {
                 <div class="hud-pill" style="border-color:${b.colorCss};opacity:${b.alive ? 1 : 0.45}">
                     <span class="hud-rank-badge">#${rank}</span>
                     <strong style="color:${b.colorCss}">${label} (${roleTag})</strong>
-                    <span>${b.alive ? 'อยู่บนเวที' : 'ตกเวทีแล้ว'}</span>
+                    <span>${b.alive ? `❤️ ${b.lives} ชีวิต` : '❌ ตกเวทีครบ 3 ครั้ง'}</span>
                     <span>ชน: ${b.hits}</span>
                 </div>
             `;
@@ -5059,18 +5397,6 @@ class Game3Sumo extends GameBase {
         `);
     }
 }
-
-// ==================== games/game4.js ====================
-/**
- * Game 4: ROCKET SOCCER (ฟุตบอลรถซิ่งติดจรวด)
- * - สร้างจำนวนรถตามจำนวนผู้เล่นที่เลือกจริง
- * - เมื่อยิงลูกบอลเข้าประตู (GOAL!) ระบบจะหยุดแสดงภาพลูกบอลในประตูและป้ายฉลองประตูชัดเจนเป็นเวลา 1 วินาทีเต็ม ก่อนรีเซ็ตเขี่ยบอลใหม่
- * - แสดงผลสรุปสถิติของผู้เข้าแข่งขัน (ประตูที่ยิง, สัมผัสบอล, บูสต์ที่ใช้) และอันดับที่ได้เมื่อจบเกม
- */
-
-
-
-
 
 class Game4Soccer extends GameBase {
     constructor(app, meta) {
@@ -5156,7 +5482,40 @@ class Game4Soccer extends GameBase {
         this.camera.lookAt(centerX, 1.0, centerZ);
     }
 
+    createBillboardAdTexture(title, subtitle, bgCss, accentCss) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 192;
+        const ctx = canvas.getContext('2d');
+
+        const grad = ctx.createLinearGradient(0, 0, 512, 192);
+        grad.addColorStop(0, '#070b18');
+        grad.addColorStop(0.5, bgCss);
+        grad.addColorStop(1, '#070b18');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 512, 192);
+
+        ctx.strokeStyle = accentCss;
+        ctx.lineWidth = 8;
+        ctx.strokeRect(8, 8, 496, 176);
+
+        ctx.fillStyle = accentCss;
+        ctx.font = 'bold 42px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(title, 256, 76);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.fillText(subtitle, 256, 134);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
+    }
+
     buildStadium() {
+        const fallbackGroup = new THREE.Group();
         const pitchMat = new THREE.MeshStandardMaterial({
             color: 0x0c2438,
             roughness: 0.42,
@@ -5165,7 +5524,7 @@ class Game4Soccer extends GameBase {
         const pitch = new THREE.Mesh(new THREE.BoxGeometry(this.pitchL * 2, 1, this.pitchW * 2), pitchMat);
         pitch.position.y = -0.5;
         pitch.receiveShadow = true;
-        this.scene.add(pitch);
+        fallbackGroup.add(pitch);
 
         const ring = new THREE.Mesh(
             new THREE.RingGeometry(4.8, 5.15, 48),
@@ -5173,7 +5532,7 @@ class Game4Soccer extends GameBase {
         );
         ring.rotation.x = -Math.PI / 2;
         ring.position.y = 0.03;
-        this.scene.add(ring);
+        fallbackGroup.add(ring);
 
         const midLine = new THREE.Mesh(
             new THREE.PlaneGeometry(0.35, this.pitchW * 2),
@@ -5181,37 +5540,22 @@ class Game4Soccer extends GameBase {
         );
         midLine.rotation.x = -Math.PI / 2;
         midLine.position.y = 0.03;
-        this.scene.add(midLine);
+        fallbackGroup.add(midLine);
+        this.scene.add(fallbackGroup);
 
-        const buildDetailedGoal = (xPos, colorHex) => {
+        const buildGoalOverlay = (xPos, colorHex) => {
             const goalGroup = new THREE.Group();
-            const postMat = new THREE.MeshStandardMaterial({
-                color: 0xffffff,
-                emissive: colorHex,
-                emissiveIntensity: 1.5,
-                roughness: 0.2,
-                metalness: 0.8
-            });
-            const h = 5.8;
-            const postL = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, h, 16), postMat);
-            postL.position.set(0, h / 2, -this.goalWidth);
-            const postR = postL.clone();
-            postR.position.z = this.goalWidth;
-
-            const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, this.goalWidth * 2 + 0.5, 16), postMat);
-            crossbar.rotation.x = Math.PI / 2;
-            crossbar.position.set(0, h, 0);
-
+            const h = 5.4;
             const netBox = new THREE.Mesh(
                 new THREE.BoxGeometry(4.2, h, this.goalWidth * 2),
                 new THREE.MeshBasicMaterial({
                     color: colorHex,
                     wireframe: true,
                     transparent: true,
-                    opacity: 0.48
+                    opacity: 0.42
                 })
             );
-            netBox.position.set(Math.sign(xPos) * 2.1, h / 2, 0);
+            netBox.position.set(Math.sign(xPos) * 2.2, h / 2, 0);
 
             // เส้นโกลเรืองแสงบนพื้นสนามเพื่อให้เห็นจังหวะบอลข้ามเส้นชัดเจน
             const goalLine = new THREE.Mesh(
@@ -5221,13 +5565,65 @@ class Game4Soccer extends GameBase {
             goalLine.rotation.x = -Math.PI / 2;
             goalLine.position.set(0, 0.05, 0);
 
-            goalGroup.add(postL, postR, crossbar, netBox, goalLine);
+            goalGroup.add(netBox, goalLine);
             goalGroup.position.x = xPos;
             this.scene.add(goalGroup);
         };
 
-        buildDetailedGoal(-this.pitchL, 0x00f0ff);
-        buildDetailedGoal(this.pitchL, 0xff2a6d);
+        buildGoalOverlay(-this.pitchL, 0x00f0ff);
+        buildGoalOverlay(this.pitchL, 0xff2a6d);
+
+        const ads = [
+            ['ROCKET SOCCER', 'BLENDER 3D STADIUM', '#0c2b2f', '#05ffa1'],
+            ['MINI CONSOLE 3D', '4-PLAYER PARTY LEAGUE', '#112a4a', '#00f0ff'],
+            ['PS3 WIRELESS', '60Hz ESP32 BRIDGE', '#2a1038', '#ff2a6d'],
+            ['TWIN TURBO', 'MAX BOOST OVERDRIVE', '#331c08', '#ffaa00'],
+            ['CYBER CUP', 'CHAMPIONS ARENA', '#1b1440', '#a855f7'],
+            ['SUPER STRIKE', 'HOLD R1 TO BOOST', '#0f293d', '#38bdf8'],
+            ['AERIAL JUMP', 'PRESS L1 / TRIANGLE', '#380d22', '#fb7185'],
+            ['BLUE VS RED', '3-MINUTE SHOWDOWN', '#0c2e2c', '#2dd4bf'],
+            ['PIXEL MOTORS', 'PRO ROCKET CHASSIS', '#291a08', '#facc15'],
+            ['ANTIGRAVITY', 'POWERED BY BLENDER', '#0d2636', '#00f0ff']
+        ];
+
+        const gltfLoader = new GLTFLoader();
+        const modelUrl = window.location.protocol === 'file:'
+            ? 'public/models/soccer_stadium.glb'
+            : '/models/soccer_stadium.glb';
+
+        gltfLoader.load(
+            modelUrl,
+            (gltf) => {
+                if (!this.scene || this._disposed) return;
+                const stadium = gltf.scene;
+                stadium.traverse((child) => {
+                    if (!child.isMesh) return;
+                    const name = child.name || '';
+                    if (name.startsWith('Billboard_Screen_')) {
+                        const idx = parseInt(name.replace('Billboard_Screen_', ''), 10) || 0;
+                        const ad = ads[idx % ads.length];
+                        const tex = this.createBillboardAdTexture(ad[0], ad[1], ad[2], ad[3]);
+                        child.material = new THREE.MeshStandardMaterial({
+                            map: tex,
+                            emissive: 0xffffff,
+                            emissiveMap: tex,
+                            emissiveIntensity: 0.9,
+                            roughness: 0.25,
+                            metalness: 0.1
+                        });
+                    } else {
+                        child.receiveShadow = true;
+                        child.castShadow = !name.startsWith('Stadium_Pitch') && !name.startsWith('Pitch_') && !name.startsWith('Line_') && !name.startsWith('Diorama_');
+                    }
+                });
+                this.scene.add(stadium);
+                fallbackGroup.visible = false;
+            },
+            undefined,
+            (err) => {
+                console.warn('Could not load soccer_stadium.glb, using fallback pitch:', err);
+            }
+        );
 
         const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
         groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
@@ -5286,6 +5682,7 @@ class Game4Soccer extends GameBase {
                 yVel: 0,
                 grounded: true,
                 boost: 100,
+                turboTimer: 0,
                 goals: 0,
                 touches: 0,
                 touchCooldown: 0,
@@ -5378,6 +5775,7 @@ class Game4Soccer extends GameBase {
 
         this.cars.forEach((c) => {
             if (c.touchCooldown > 0) c.touchCooldown -= dt;
+            if (c.turboTimer > 0) c.turboTimer -= dt;
 
             for (let i = this.powerups.length - 1; i >= 0; i--) {
                 const p = this.powerups[i];
@@ -5385,7 +5783,7 @@ class Game4Soccer extends GameBase {
                     this.scene.remove(p.mesh);
                     this.powerups.splice(i, 1);
                     c.boost = 100;
-                    c.speed = Math.min(28, c.speed + 9);
+                    c.turboTimer = 4.0;
                     this.audio.powerup();
                     this.particles.explode(c.mesh.position, 0x05ffa1, 24, 7);
                 }
@@ -5396,10 +5794,15 @@ class Game4Soccer extends GameBase {
             let throttle = 0, steer = 0, boost = false, jump = false;
 
             if (isHuman) {
-                const stickThrottle = Math.abs(pad.ly) > 0.05 ? -pad.ly : 0;
-                const btnThrottle = (pad.cross || pad.r2Btn) ? 1 : (pad.circle || pad.l2Btn ? -0.7 : 0);
-                throttle = stickThrottle !== 0 ? stickThrottle : btnThrottle;
-                steer = -pad.lx;
+                const stickThrottle = Math.abs(pad.ly) > 0.12 ? -pad.ly : 0;
+                const dpadThrottle = (pad.up ? 1 : 0) - (pad.down ? 0.8 : 0);
+                const btnThrottle = (pad.cross || pad.r2Btn) ? 1 : (pad.circle || pad.l2Btn ? -0.75 : 0);
+                throttle = dpadThrottle !== 0 ? dpadThrottle : (btnThrottle !== 0 ? btnThrottle : stickThrottle);
+
+                const stickSteer = Math.abs(pad.lx) > 0.12 ? -pad.lx : 0;
+                const dpadSteer = (pad.left ? 1 : 0) - (pad.right ? 1 : 0);
+                steer = dpadSteer !== 0 ? dpadSteer : stickSteer;
+
                 boost = pad.r1 || pad.square;
                 jump = pad.justPressed.triangle || pad.justPressed.l1;
             } else {
@@ -5433,13 +5836,14 @@ class Game4Soccer extends GameBase {
                 }
             }
 
-            const topSpeed = (boost && c.boost > 0) ? 28.0 : 18.5;
+            const baseSpeed = c.turboTimer > 0 ? 26.0 : 21.0;
+            const topSpeed = (boost && c.boost > 0) ? (c.turboTimer > 0 ? 36.0 : 31.0) : baseSpeed;
             if (boost && c.boost > 0) {
-                c.boost = Math.max(0, c.boost - dt * 30);
+                c.boost = Math.max(0, c.boost - dt * 28);
                 c.boostTimeUsed += dt;
                 this.particles.emit(c.mesh.position, { x: 0, y: 1, z: 0 }, 0xffb800, 0.45, 0.25, 2, 2);
             } else {
-                c.boost = Math.min(100, c.boost + dt * 15);
+                c.boost = Math.min(100, c.boost + dt * 18);
             }
 
             const ud = c.mesh.userData;
@@ -5451,11 +5855,11 @@ class Game4Soccer extends GameBase {
                     }
                 });
                 if (ud.nozzleCore) {
-                    ud.nozzleCore.scale.setScalar(boost && c.boost > 0 ? 1.35 : 0.9);
+                    ud.nozzleCore.scale.setScalar((boost && c.boost > 0) || c.turboTimer > 0 ? 1.45 : 0.9);
                 }
             }
 
-            c.yaw += steer * 2.3 * dt;
+            c.yaw += steer * 2.8 * dt;
             const forward = new THREE.Vector3(Math.sin(c.yaw), 0, Math.cos(c.yaw));
             c.mesh.position.addScaledVector(forward, throttle * topSpeed * dt);
             c.mesh.position.x = THREE.MathUtils.clamp(c.mesh.position.x, -this.pitchL + 1.2, this.pitchL - 1.2);
@@ -5477,7 +5881,7 @@ class Game4Soccer extends GameBase {
                 else this.lastTouchRed = c;
 
                 toBall.normalize();
-                const hitPower = boost ? 26 : 18;
+                const hitPower = (boost && c.boost > 0) || c.turboTimer > 0 ? 32 : 22;
                 this.ball.body.velocity.set(toBall.x * hitPower, Math.max(5.5, toBall.y * 12), toBall.z * hitPower);
                 this.ball.body.angularVelocity.set(toBall.z * 6, 2.0, -toBall.x * 6);
                 this.audio.hit();
@@ -5630,7 +6034,7 @@ class Game4Soccer extends GameBase {
     }
 }
 
-        class Game5Zombies extends GameBase {
+class Game5Zombies extends GameBase {
     constructor(app, meta) {
         super(app, meta);
         this.heroes = [];
@@ -6101,7 +6505,933 @@ class Game4Soccer extends GameBase {
 
 
 
-const GAME_CLASSES = [Game1Kart, Game2Blaster, Game3Sumo, Game4Soccer, Game5Zombies];
+/**
+ * Game 6: CYBER TENNIS (ไซเบอร์เทนนิส 3 มิติ)
+ * - สนามเทนนิสไซเบอร์พังก์ 3 มิติ พร้อมเส้นสนามเรืองแสงและตาข่ายพลังงาน
+ * - รองรับผู้เล่น 1-4 คน (1v1 หรือ 2v2) ตาม Config.players.activeCount พร้อมบอท AI อัตโนมัติ
+ * - ตีลูกได้ 4 รูปแบบ: Normal Shot, Power Shot, Lob Shot และ Special Cyber Smash
+ * - ฟิสิกส์ลูกบอลแบบ Fixed Timestep 60 Hz (แรงโน้มถ่วง, เด้งพื้น, ชนตาข่าย, ออกนอกเส้น)
+ */
+
+/**
+ * Game 6: Cyber Tennis (ศึกเทนนิสนีออน 3 มิติ — Babylon.js Engine)
+ * รองรับผู้เล่น 1-4 คน (1v1 และ 2v2 คู่) + AI บอทอัตโนมัติสำหรับช่องที่ไม่ได้ต่อจอย
+ * ใช้ Babylon.js (PBRMaterial + GlowLayer + ParticleSystem) ผ่าน GameBase Lifecycle
+ */
+
+/**
+ * Game 6: Cyber Tennis (ศึกเทนนิสนีออน 3 มิติ — Babylon.js Engine)
+ * รองรับผู้เล่น 1-4 คน (1v1 และ 2v2 คู่) + AI บอทอัตโนมัติสำหรับช่องที่ไม่ได้ต่อจอย
+ * ใช้ Babylon.js (PBRMaterial + GlowLayer + ParticleSystem) ผ่าน GameBase Lifecycle
+ */
+
+class Game6Tennis extends GameBase {
+    constructor(app, meta) {
+        super(app, meta);
+        this.courtHalfL = 18.0; // X: -18 ถึง +18
+        this.courtHalfW = 9.0;  // Z: -9 ถึง +9
+        this.netHeight = 2.15;
+        this.targetScore = 5;
+        this.matchTimer = 180;
+        this.winner = null;
+        this.winnerText = '';
+        this.showSummary = false;
+
+        this.players = [];
+        this.scoreBlue = 0;
+        this.scoreRed = 0;
+        this.rallyCount = 0;
+        this.bestRally = 0;
+        this.serveDelay = 1.1;
+        this.serveTeam = 0;
+        this.pointFreezeTimer = 0;
+        this.lastPointBanner = '';
+        this.lastPointTimer = 0;
+
+        this.ball = null;
+        this.ballVel = null;
+        this.ballShadow = null;
+        this.ballShotType = 'normal';
+        this.lastHitTeam = -1;
+        this.bounceCountOnSide = 0;
+        this.cameraShake = 0;
+
+        this.trailMeshes = [];
+        this.trailIndex = 0;
+        this.hitFlashTimer = 0;
+        this.netFlashTimer = 0;
+        this.elapsedTime = 0;
+
+        // Babylon.js Engine & Scene state
+        this.bjsCanvas = null;
+        this.engine = null;
+        this.bScene = null;
+        this.bCamera = null;
+        this.glowLayer = null;
+        this.sparkSystem = null;
+        this.sparkEmitter = null;
+        this.ballMat = null;
+        this.netMat = null;
+        this.netTopMat = null;
+        this.trailMat = null;
+        this._onResize = null;
+        this._threeCanvas = null;
+    }
+
+    init() {
+        const B = window.BABYLON;
+        if (!B) {
+            this.setHUD(`
+                <div class="hud-top">
+                    <div class="hud-card" style="border-color:#ff3366;">
+                        <h3 style="color:#ff3366;">⚠️ ไม่สามารถโหลด Babylon.js CDN</h3>
+                        <div>กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต (https://cdn.babylonjs.com/babylon.js)</div>
+                    </div>
+                </div>
+            `);
+            return;
+        }
+
+        // ซ่อน Three.js canvas ชั่วคราวแล้วสร้าง Babylon.js canvas ซ้อนทับ
+        this._threeCanvas = document.getElementById('webgl-canvas');
+        if (this._threeCanvas) this._threeCanvas.style.visibility = 'hidden';
+
+        const existing = document.getElementById('babylon-canvas');
+        if (existing) existing.remove();
+
+        this.bjsCanvas = document.createElement('canvas');
+        this.bjsCanvas.id = 'babylon-canvas';
+        Object.assign(this.bjsCanvas.style, {
+            position: 'fixed',
+            inset: '0',
+            width: '100vw',
+            height: '100vh',
+            display: 'block',
+            zIndex: '1'
+        });
+        document.body.insertBefore(this.bjsCanvas, document.body.firstChild);
+
+        this.engine = new B.Engine(this.bjsCanvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true,
+            antialias: true
+        });
+        this.bScene = new B.Scene(this.engine);
+        this.bScene.clearColor = new B.Color4(0.015, 0.025, 0.06, 1.0);
+        this.bScene.fogMode = B.Scene.FOGMODE_EXP2;
+        this.bScene.fogColor = new B.Color3(0.015, 0.025, 0.06);
+        this.bScene.fogDensity = 0.0085;
+
+        // Babylon GlowLayer สำหรับเอฟเฟกต์นีออนเรืองแสง
+        this.glowLayer = new B.GlowLayer('neonGlow', this.bScene, {
+            mainTextureFixedSize: 512,
+            blurKernelSize: 48
+        });
+        this.glowLayer.intensity = 0.85;
+
+        // กล้องหลัก (Left-handed: X ซ้าย-ขวา, Y บน-ล่าง, Z หน้า-หลัง)
+        this.bCamera = new B.FreeCamera('tennisCam', new B.Vector3(0, 21.5, -24.5), this.bScene);
+        this.bCamera.setTarget(new B.Vector3(0, 0.5, 1.5));
+        this.bCamera.fov = 0.78;
+
+        this._onResize = () => {
+            if (this.engine) this.engine.resize();
+        };
+        window.addEventListener('resize', this._onResize);
+
+        this._setupLighting();
+        this.buildCourt();
+        this.buildBall();
+        this.buildParticleSystem();
+        this.spawnPlayers();
+        this.resetBall(0);
+
+        this.audio.startTennisBGM();
+        this.updateHUD();
+    }
+
+    _setupLighting() {
+        const B = window.BABYLON;
+        const hemi = new B.HemisphericLight('hemi', new B.Vector3(0, 1, 0), this.bScene);
+        hemi.intensity = 0.55;
+        hemi.diffuse = new B.Color3(0.7, 0.85, 1.0);
+        hemi.groundColor = new B.Color3(0.08, 0.05, 0.16);
+
+        const dir = new B.DirectionalLight('dir', new B.Vector3(-0.35, -1, 0.25), this.bScene);
+        dir.intensity = 0.95;
+        dir.diffuse = new B.Color3(0.95, 0.98, 1.0);
+
+        const blueSpot = new B.PointLight('blueSpot', new B.Vector3(-12, 11, 0), this.bScene);
+        blueSpot.diffuse = new B.Color3(0.0, 0.85, 1.0);
+        blueSpot.intensity = 1.4;
+        blueSpot.range = 40;
+
+        const redSpot = new B.PointLight('redSpot', new B.Vector3(12, 11, 0), this.bScene);
+        redSpot.diffuse = new B.Color3(1.0, 0.18, 0.45);
+        redSpot.intensity = 1.4;
+        redSpot.range = 40;
+    }
+
+    _stdMat(name, diffuseHex, emissiveHex = null, alpha = 1.0) {
+        const B = window.BABYLON;
+        const m = new B.StandardMaterial(name, this.bScene);
+        m.diffuseColor = B.Color3.FromHexString(diffuseHex);
+        if (emissiveHex) {
+            m.emissiveColor = B.Color3.FromHexString(emissiveHex);
+        }
+        m.specularColor = new B.Color3(0.35, 0.35, 0.45);
+        m.alpha = alpha;
+        return m;
+    }
+
+    buildCourt() {
+        const B = window.BABYLON;
+
+        // พื้นสนามสะท้อนแสง PBR
+        const floor = B.MeshBuilder.CreateBox('arenaFloor', { width: 72, height: 0.4, depth: 46 }, this.bScene);
+        floor.position.y = -0.25;
+        const floorPbr = new B.PBRMaterial('floorPbr', this.bScene);
+        floorPbr.albedoColor = B.Color3.FromHexString('#070b18');
+        floorPbr.metallic = 0.78;
+        floorPbr.roughness = 0.24;
+        floor.material = floorPbr;
+
+        // พื้นคอร์ตด้านใน
+        const courtSurface = B.MeshBuilder.CreateBox('courtSurface', {
+            width: this.courtHalfL * 2,
+            height: 0.08,
+            depth: this.courtHalfW * 2
+        }, this.bScene);
+        courtSurface.position.y = -0.02;
+        const courtPbr = new B.PBRMaterial('courtPbr', this.bScene);
+        courtPbr.albedoColor = B.Color3.FromHexString('#0b1630');
+        courtPbr.metallic = 0.65;
+        courtPbr.roughness = 0.28;
+        courtSurface.material = courtPbr;
+
+        const addLine = (name, w, d, x, z, hex = '#00f0ff') => {
+            const line = B.MeshBuilder.CreateBox(name, { width: w, height: 0.04, depth: d }, this.bScene);
+            line.position.set(x, 0.03, z);
+            line.material = this._stdMat(`${name}_m`, hex, hex);
+        };
+
+        // เส้นขอบสนามนีออน
+        addLine('topLine', this.courtHalfL * 2, 0.2, 0, -this.courtHalfW, '#00f0ff');
+        addLine('botLine', this.courtHalfL * 2, 0.2, 0, this.courtHalfW, '#00f0ff');
+        addLine('leftLine', 0.22, this.courtHalfW * 2, -this.courtHalfL, 0, '#00d8ff');
+        addLine('rightLine', 0.22, this.courtHalfW * 2, this.courtHalfL, 0, '#ff3366');
+
+        // เส้นเสิร์ฟ + เส้นกลาง
+        addLine('srvL', 0.14, this.courtHalfW * 2, -8.5, 0, '#7c4dff');
+        addLine('srvR', 0.14, this.courtHalfW * 2, 8.5, 0, '#ff4081');
+        addLine('centerLine', 17.0, 0.12, 0, 0, '#a855f7');
+
+        // โซนสีทีมจางๆ
+        const blueZone = B.MeshBuilder.CreateBox('blueZone', {
+            width: this.courtHalfL - 0.5, height: 0.02, depth: this.courtHalfW * 2 - 0.5
+        }, this.bScene);
+        blueZone.position.set(-this.courtHalfL / 2, 0.015, 0);
+        blueZone.material = this._stdMat('blueZoneM', '#00f0ff', '#005577', 0.09);
+
+        const redZone = B.MeshBuilder.CreateBox('redZone', {
+            width: this.courtHalfL - 0.5, height: 0.02, depth: this.courtHalfW * 2 - 0.5
+        }, this.bScene);
+        redZone.position.set(this.courtHalfL / 2, 0.015, 0);
+        redZone.material = this._stdMat('redZoneM', '#ff3366', '#770022', 0.09);
+
+        // ตาข่ายโฮโลแกรมกลางสนาม
+        this.netMat = this._stdMat('netMat', '#a855f7', '#7c3aed', 0.42);
+        const netMesh = B.MeshBuilder.CreateBox('netMesh', {
+            width: 0.14, height: this.netHeight, depth: this.courtHalfW * 2 + 0.8
+        }, this.bScene);
+        netMesh.position.set(0, this.netHeight / 2, 0);
+        netMesh.material = this.netMat;
+
+        this.netTopMat = this._stdMat('netTopMat', '#00f0ff', '#00f0ff');
+        const netTop = B.MeshBuilder.CreateBox('netTop', {
+            width: 0.24, height: 0.18, depth: this.courtHalfW * 2 + 1.1
+        }, this.bScene);
+        netTop.position.set(0, this.netHeight, 0);
+        netTop.material = this.netTopMat;
+
+        // เสาเน็ตซ้าย-ขวา
+        const postMat = this._stdMat('postMat', '#e2e8f0', '#38bdf8');
+        for (const zSign of [-1, 1]) {
+            const post = B.MeshBuilder.CreateCylinder(`netPost_${zSign}`, {
+                diameter: 0.34, height: this.netHeight + 0.4, tessellation: 12
+            }, this.bScene);
+            post.position.set(0, (this.netHeight + 0.4) / 2, zSign * (this.courtHalfW + 0.55));
+            post.material = postMat;
+        }
+
+        // เสาไฟนีออนรอบสนาม (Cyber Arena Pillars)
+        const pillarPositions = [
+            [-21, -12], [-21, 12], [21, -12], [21, 12],
+            [-10, -13], [10, -13], [-10, 13], [10, 13]
+        ];
+        pillarPositions.forEach(([px, pz], idx) => {
+            const isBlue = px < 0;
+            const hex = isBlue ? '#00f0ff' : '#ff3366';
+            const pillar = B.MeshBuilder.CreateBox(`pillar_${idx}`, { width: 0.55, height: 10, depth: 0.55 }, this.bScene);
+            pillar.position.set(px, 5, pz);
+            pillar.material = this._stdMat(`pillarMat_${idx}`, '#141c33', hex);
+        });
+    }
+
+    buildBall() {
+        const B = window.BABYLON;
+        this.ballMat = this._stdMat('ballMat', '#ffe600', '#ffe600');
+        this.ball = B.MeshBuilder.CreateSphere('tennisBall', { diameter: 0.84, segments: 18 }, this.bScene);
+        this.ball.position.set(0, 3, 0);
+        this.ball.material = this.ballMat;
+        this.ballVel = new B.Vector3(0, 0, 0);
+
+        // เงาบนพื้น
+        this.ballShadow = B.MeshBuilder.CreateDisc('ballShadow', { radius: 0.48, tessellation: 16 }, this.bScene);
+        this.ballShadow.rotation.x = Math.PI / 2;
+        this.ballShadow.position.y = 0.05;
+        this.ballShadow.material = this._stdMat('shadowMat', '#000000', null, 0.45);
+
+        // Pool เงาหางลูกบอล (Ball Trail)
+        this.trailMat = this._stdMat('trailMat', '#00f0ff', '#00f0ff', 0.45);
+        for (let i = 0; i < 16; i++) {
+            const tMesh = B.MeshBuilder.CreateSphere(`trail_${i}`, { diameter: 0.56, segments: 8 }, this.bScene);
+            tMesh.isVisible = false;
+            tMesh.material = this.trailMat;
+            this.trailMeshes.push(tMesh);
+        }
+    }
+
+    buildParticleSystem() {
+        const B = window.BABYLON;
+        const tex = new B.DynamicTexture('sparkTex', 32, this.bScene, false);
+        const ctx = tex.getContext();
+        const grad = ctx.createRadialGradient(16, 16, 1, 16, 16, 15);
+        grad.addColorStop(0, 'rgba(255,255,255,1)');
+        grad.addColorStop(0.4, 'rgba(0,240,255,0.85)');
+        grad.addColorStop(1, 'rgba(0,240,255,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 32, 32);
+        tex.update();
+        tex.hasAlpha = true;
+
+        this.sparkEmitter = new B.TransformNode('sparkEmitter', this.bScene);
+        this.sparkSystem = new B.ParticleSystem('sparks', 240, this.bScene);
+        this.sparkSystem.particleTexture = tex;
+        this.sparkSystem.emitter = this.sparkEmitter;
+        this.sparkSystem.minSize = 0.16;
+        this.sparkSystem.maxSize = 0.42;
+        this.sparkSystem.minLifeTime = 0.18;
+        this.sparkSystem.maxLifeTime = 0.42;
+        this.sparkSystem.emitRate = 0;
+        this.sparkSystem.minEmitPower = 4;
+        this.sparkSystem.maxEmitPower = 11;
+        this.sparkSystem.gravity = new B.Vector3(0, -14, 0);
+        this.sparkSystem.blendMode = B.ParticleSystem.BLENDMODE_ADD;
+        this.sparkSystem.start();
+    }
+
+    _emitSparks(pos, hex, count = 24) {
+        if (!this.sparkSystem || !this.sparkEmitter) return;
+        const B = window.BABYLON;
+        this.sparkEmitter.position.copyFrom(pos);
+        const c = B.Color3.FromHexString(hex);
+        this.sparkSystem.color1 = new B.Color4(c.r, c.g, c.b, 1);
+        this.sparkSystem.color2 = new B.Color4(1, 1, 1, 0.9);
+        this.sparkSystem.manualEmitCount = count;
+    }
+
+    _createPlayerMesh(idx, colorHex, team) {
+        const B = window.BABYLON;
+        const root = new B.TransformNode(`player_${idx}`, this.bScene);
+
+        const bodyMat = this._stdMat(`pBody_${idx}`, colorHex, colorHex);
+        const darkMat = this._stdMat(`pDark_${idx}`, '#161f38');
+        const visorMat = this._stdMat(`pVisor_${idx}`, '#ffffff', '#00f0ff');
+
+        // วงแหวนพื้นเรืองแสง
+        const ring = B.MeshBuilder.CreateTorus(`pRing_${idx}`, { diameter: 1.9, thickness: 0.12, tessellation: 24 }, this.bScene);
+        ring.position.y = 0.08;
+        ring.parent = root;
+        ring.material = bodyMat;
+
+        // ลำตัว
+        const torso = B.MeshBuilder.CreateCylinder(`pTorso_${idx}`, {
+            diameterTop: 0.9, diameterBottom: 0.65, height: 1.35, tessellation: 12
+        }, this.bScene);
+        torso.position.y = 1.0;
+        torso.parent = root;
+        torso.material = bodyMat;
+
+        // ศีรษะ + Visor นีออน
+        const head = B.MeshBuilder.CreateSphere(`pHead_${idx}`, { diameter: 0.72, segments: 12 }, this.bScene);
+        head.position.y = 2.02;
+        head.parent = root;
+        head.material = darkMat;
+
+        const visor = B.MeshBuilder.CreateBox(`pVisor_${idx}`, { width: 0.44, height: 0.18, depth: 0.56 }, this.bScene);
+        visor.position.set(team === 0 ? 0.22 : -0.22, 2.05, 0);
+        visor.parent = root;
+        visor.material = visorMat;
+
+        // ไม้แร็กเก็ตพลังงานนีออน
+        const racketGroup = new B.TransformNode(`pRacket_${idx}`, this.bScene);
+        racketGroup.position.set(team === 0 ? 0.35 : -0.35, 1.25, 0.55);
+        racketGroup.parent = root;
+
+        const handle = B.MeshBuilder.CreateCylinder(`pHandle_${idx}`, { diameter: 0.1, height: 0.85, tessellation: 8 }, this.bScene);
+        handle.position.y = 0.35;
+        handle.parent = racketGroup;
+        handle.material = darkMat;
+
+        const frame = B.MeshBuilder.CreateTorus(`pFrame_${idx}`, { diameter: 0.96, thickness: 0.1, tessellation: 18 }, this.bScene);
+        frame.position.y = 1.1;
+        frame.rotation.y = Math.PI / 2;
+        frame.parent = racketGroup;
+        frame.material = bodyMat;
+
+        const netPad = B.MeshBuilder.CreateCylinder(`pNetPad_${idx}`, { diameter: 0.84, height: 0.04, tessellation: 14 }, this.bScene);
+        netPad.position.y = 1.1;
+        netPad.rotation.z = Math.PI / 2;
+        netPad.parent = racketGroup;
+        netPad.material = this._stdMat(`pPadM_${idx}`, colorHex, colorHex, 0.35);
+
+        return { root, racketGroup };
+    }
+
+    spawnPlayers() {
+        const activeCount = Config.players.activeCount;
+        const isDoubles = activeCount >= 3;
+        const totalSlots = isDoubles ? 4 : 2;
+        const teamColors = ['#00f0ff', '#ff3366', '#05ffa1', '#ffbe0b'];
+
+        for (let i = 0; i < totalSlots; i++) {
+            const team = i % 2; // 0 = Blue (-X), 1 = Red (+X)
+            const isHumanSlot = i < activeCount;
+            const pad = isHumanSlot ? this.input.pads[i] : null;
+            const hasController = !!(pad && pad.connected);
+
+            let startZ = 0;
+            if (isDoubles) {
+                const pairIdx = Math.floor(i / 2);
+                startZ = pairIdx === 0 ? -4.2 : 4.2;
+            }
+            const startX = team === 0 ? -13.0 : 13.0;
+            const colorHex = teamColors[i];
+            const { root, racketGroup } = this._createPlayerMesh(i, colorHex, team);
+            root.position.set(startX, 0, startZ);
+
+            this.players.push({
+                idx: i,
+                name: isHumanSlot ? `P${i + 1}` : `CPU ${i + 1}`,
+                team,
+                colorHex,
+                isHumanSlot,
+                isAI: !hasController,
+                isExtraCpu: !isHumanSlot,
+                mesh: root,
+                racketGroup,
+                velX: 0,
+                velZ: 0,
+                swingTimer: 0,
+                swingDir: 1,
+                hitCooldown: 0,
+                specialCharge: 100,
+                hits: 0,
+                misses: 0,
+                pointsWon: 0,
+                prevL2: false,
+                prevR2: false
+            });
+        }
+    }
+
+    resetBall(servingTeam = 0) {
+        const B = window.BABYLON;
+        this.serveTeam = servingTeam;
+        this.serveDelay = 0.85;
+        this.ballShotType = 'normal';
+        this.lastHitTeam = servingTeam;
+        this.bounceCountOnSide = 0;
+
+        const dir = servingTeam === 0 ? 1 : -1;
+        this.ball.position.set(servingTeam === 0 ? -10.5 : 10.5, 3.2, 0);
+        this.ballVel = new B.Vector3(dir * 16.5, 5.2, (Math.random() - 0.5) * 4.5);
+
+        if (this.ballMat) {
+            const c = B.Color3.FromHexString('#ffe600');
+            this.ballMat.diffuseColor = c;
+            this.ballMat.emissiveColor = c;
+        }
+        for (const t of this.trailMeshes) t.isVisible = false;
+    }
+
+    _predictBallZAtX(targetX) {
+        if (!this.ballVel || Math.abs(this.ballVel.x) < 0.2) return this.ball.position.z;
+        const t = (targetX - this.ball.position.x) / this.ballVel.x;
+        if (t <= 0 || t > 2.5) return this.ball.position.z;
+        let pz = this.ball.position.z + this.ballVel.z * t;
+        pz = Math.max(-this.courtHalfW + 0.8, Math.min(this.courtHalfW - 0.8, pz));
+        return pz;
+    }
+
+    performShot(p, shotType, aimZ = 0) {
+        if (p.hitCooldown > 0) return false;
+        const dist = window.BABYLON.Vector3.Distance(
+            new window.BABYLON.Vector3(this.ball.position.x, 0, this.ball.position.z),
+            new window.BABYLON.Vector3(p.mesh.position.x, 0, p.mesh.position.z)
+        );
+        if (dist > 3.6 || this.ball.position.y > 4.8) return false;
+
+        if (shotType === 'special' && p.specialCharge < 100) {
+            shotType = 'power';
+        }
+
+        const dirX = p.team === 0 ? 1 : -1;
+        let speedX = 21.0;
+        let velY = 6.2;
+        let spreadZ = aimZ * 10.5;
+
+        if (shotType === 'power') {
+            speedX = 28.5;
+            velY = 4.2;
+            this.cameraShake = 0.22;
+            this.audio.tennisHit(true);
+        } else if (shotType === 'lob') {
+            speedX = 14.5;
+            velY = 12.8;
+            this.audio.tennisHit(false);
+        } else if (shotType === 'special') {
+            speedX = 34.0;
+            velY = 3.2;
+            spreadZ += (Math.random() - 0.5) * 4.0;
+            p.specialCharge = 0;
+            this.cameraShake = 0.45;
+            this.audio.tennisHit(true);
+        } else {
+            this.audio.tennisHit(false);
+        }
+
+        this.ballVel.set(dirX * speedX, velY, spreadZ);
+        this.ballShotType = shotType;
+        this.lastHitTeam = p.team;
+        this.bounceCountOnSide = 0;
+        this.rallyCount++;
+        if (this.rallyCount > this.bestRally) this.bestRally = this.rallyCount;
+
+        p.hitCooldown = 0.28;
+        p.swingTimer = 0.26;
+        p.swingDir = p.team === 0 ? 1 : -1;
+        p.hits++;
+        if (shotType !== 'special') {
+            p.specialCharge = Math.min(100, p.specialCharge + 28);
+        }
+
+        this.hitFlashTimer = 0.14;
+        const B = window.BABYLON;
+        const shotHex = shotType === 'special' ? '#ff00ff'
+            : shotType === 'power' ? '#ff6b00'
+            : shotType === 'lob' ? '#05ffa1' : '#ffe600';
+        if (this.ballMat) {
+            const c = B.Color3.FromHexString(shotHex);
+            this.ballMat.diffuseColor = c;
+            this.ballMat.emissiveColor = c;
+        }
+        if (this.trailMat) {
+            const tc = B.Color3.FromHexString(shotHex);
+            this.trailMat.diffuseColor = tc;
+            this.trailMat.emissiveColor = tc;
+        }
+        this._emitSparks(this.ball.position, shotHex, shotType === 'special' ? 38 : 20);
+
+        if (!p.isAI && p.isHumanSlot) {
+            this.input.rumble(p.idx, shotType === 'special' ? 0.9 : 0.45, 0.35, 130);
+        }
+        return true;
+    }
+
+    awardPoint(winningTeam, reason) {
+        if (this.winner || this.pointFreezeTimer > 0) return;
+
+        if (winningTeam === 'BLUE') {
+            this.scoreBlue++;
+            for (const p of this.players) if (p.team === 0) p.pointsWon++;
+        } else {
+            this.scoreRed++;
+            for (const p of this.players) if (p.team === 1) p.pointsWon++;
+        }
+
+        const losingTeamIdx = winningTeam === 'BLUE' ? 1 : 0;
+        for (const p of this.players) {
+            if (p.team === losingTeamIdx) p.misses++;
+        }
+
+        this.rallyCount = 0;
+        this.pointFreezeTimer = 1.15;
+        this.lastPointBanner = `${winningTeam === 'BLUE' ? '🔵 ทีมสีฟ้า' : '🔴 ทีมสีแดง'} ได้แต้ม! (${reason})`;
+        this.lastPointTimer = 1.6;
+        this.audio.powerup();
+
+        this._emitSparks(this.ball.position, winningTeam === 'BLUE' ? '#00f0ff' : '#ff3366', 45);
+
+        for (const p of this.players) {
+            if (!p.isAI && p.isHumanSlot) {
+                this.input.rumble(p.idx, 0.7, 0.5, 220);
+            }
+        }
+
+        if (this.scoreBlue >= this.targetScore || this.scoreRed >= this.targetScore) {
+            this.finishMatch();
+        }
+    }
+
+    finishMatch() {
+        if (this.winner) return;
+        const blueWins = this.scoreBlue >= this.scoreRed;
+        this.winner = blueWins ? 'BLUE' : 'RED';
+        this.winnerText = blueWins ? '🏆 ทีมสีฟ้าคว้าแชมป์ CYBER TENNIS!' : '🏆 ทีมสีแดงคว้าแชมป์ CYBER TENNIS!';
+        this.showSummary = true;
+        this.audio.stopBGM();
+        this.audio.victoryFanfare();
+    }
+
+    pause(state) {
+        super.pause(state);
+        if (state) {
+            this.audio.stopBGM();
+        } else if (!this.winner) {
+            this.audio.startTennisBGM();
+        }
+    }
+
+    fixedUpdate(dt) {
+        if (!this.bScene || this.winner) return;
+        this.elapsedTime += dt;
+
+        // อัปเดตตัวจับเวลาการแข่งขัน
+        if (this.matchTimer > 0) {
+            this.matchTimer = Math.max(0, this.matchTimer - dt);
+            if (this.matchTimer <= 0) {
+                this.finishMatch();
+                return;
+            }
+        }
+
+        if (this.lastPointTimer > 0) this.lastPointTimer -= dt;
+        if (this.hitFlashTimer > 0) this.hitFlashTimer -= dt;
+        if (this.netFlashTimer > 0) this.netFlashTimer -= dt;
+        if (this.cameraShake > 0) this.cameraShake = Math.max(0, this.cameraShake - dt * 1.8);
+
+        if (this.pointFreezeTimer > 0) {
+            this.pointFreezeTimer -= dt;
+            if (this.pointFreezeTimer <= 0) {
+                this.resetBall(this.scoreBlue >= this.scoreRed ? 1 : 0);
+            }
+            return;
+        }
+
+        // อัปเดตผู้เล่น (Human + AI Fallback)
+        for (const p of this.players) {
+            if (p.hitCooldown > 0) p.hitCooldown -= dt;
+            if (p.swingTimer > 0) {
+                p.swingTimer -= dt;
+                p.racketGroup.rotation.z = Math.sin((1 - p.swingTimer / 0.26) * Math.PI) * 1.35 * p.swingDir;
+            } else {
+                p.racketGroup.rotation.z *= 0.8;
+            }
+
+            if (p.isHumanSlot) {
+                const pad = this.input.pads[p.idx];
+                p.isAI = !(pad && pad.connected);
+            }
+
+            let moveX = 0;
+            let moveZ = 0;
+
+            if (!p.isAI) {
+                const pad = this.input.pads[p.idx];
+                moveX = pad.lx;
+                moveZ = -pad.ly;
+
+                const l2Just = pad.l2Btn && !p.prevL2;
+                const r2Just = pad.r2Btn && !p.prevR2;
+                p.prevL2 = !!pad.l2Btn;
+                p.prevR2 = !!pad.r2Btn;
+
+                if (pad.justPressed.square || l2Just) {
+                    this.performShot(p, 'special', moveZ);
+                } else if (pad.justPressed.circle) {
+                    this.performShot(p, 'lob', moveZ);
+                } else if (pad.justPressed.triangle || pad.justPressed.r1 || r2Just) {
+                    this.performShot(p, 'power', moveZ);
+                } else if (pad.justPressed.cross || pad.justPressed.l1) {
+                    this.performShot(p, 'normal', moveZ);
+                }
+            } else {
+                // AI คุมตำแหน่งและตีโต้อัตโนมัติ
+                const homeX = p.team === 0 ? -12.5 : 12.5;
+                const ballComingToMe = (p.team === 0 && this.ballVel.x < 0) || (p.team === 1 && this.ballVel.x > 0);
+                let targetX = homeX;
+                let targetZ = 0;
+
+                if (this.players.length === 4) {
+                    const pairIdx = Math.floor(p.idx / 2);
+                    targetZ = pairIdx === 0 ? -4.2 : 4.2;
+                }
+
+                if (ballComingToMe) {
+                    const predZ = this._predictBallZAtX(p.mesh.position.x);
+                    if (this.players.length === 4) {
+                        const myHalf = Math.floor(p.idx / 2) === 0 ? -1 : 1;
+                        if (Math.sign(predZ) === myHalf || Math.abs(predZ) < 2.2) {
+                            targetZ = predZ;
+                            targetX = Math.max(2.5, Math.min(this.courtHalfL - 1.2, Math.abs(this.ball.position.x))) * (p.team === 0 ? -1 : 1);
+                        }
+                    } else {
+                        targetZ = predZ;
+                        targetX = Math.max(3.0, Math.min(this.courtHalfL - 1.0, Math.abs(this.ball.position.x))) * (p.team === 0 ? -1 : 1);
+                    }
+                }
+
+                const dx = targetX - p.mesh.position.x;
+                const dz = targetZ - p.mesh.position.z;
+                moveX = Math.max(-0.92, Math.min(0.92, dx * 0.45));
+                moveZ = Math.max(-0.92, Math.min(0.92, dz * 0.45));
+
+                if (ballComingToMe) {
+                    const distToBall = window.BABYLON.Vector3.Distance(
+                        new window.BABYLON.Vector3(this.ball.position.x, 0, this.ball.position.z),
+                        new window.BABYLON.Vector3(p.mesh.position.x, 0, p.mesh.position.z)
+                    );
+                    if (distToBall < 2.6 && this.ball.position.y < 3.4) {
+                        const aim = (Math.random() - 0.5) * 1.4;
+                        const aiShot = p.specialCharge >= 100 && Math.random() < 0.25 ? 'special'
+                            : Math.random() < 0.25 ? 'power'
+                            : Math.random() < 0.2 ? 'lob' : 'normal';
+                        this.performShot(p, aiShot, aim);
+                    }
+                }
+            }
+
+            // เคลื่อนที่ลื่นไหล + ขอบเขตฝั่งตัวเอง
+            const maxSpeed = 14.5;
+            p.velX += (moveX * maxSpeed - p.velX) * Math.min(1, dt * 12);
+            p.velZ += (moveZ * maxSpeed - p.velZ) * Math.min(1, dt * 12);
+            p.mesh.position.x += p.velX * dt;
+            p.mesh.position.z += p.velZ * dt;
+
+            const minX = p.team === 0 ? -this.courtHalfL + 0.8 : 1.4;
+            const maxX = p.team === 0 ? -1.4 : this.courtHalfL - 0.8;
+            p.mesh.position.x = Math.max(minX, Math.min(maxX, p.mesh.position.x));
+            p.mesh.position.z = Math.max(-this.courtHalfW + 0.8, Math.min(this.courtHalfW - 0.8, p.mesh.position.z));
+        }
+
+        // หน่วงจังหวะก่อนเสิร์ฟลูก
+        if (this.serveDelay > 0) {
+            this.serveDelay -= dt;
+            return;
+        }
+
+        // ฟิสิกส์ลูกบอล (Fixed Timestep)
+        const prevBallX = this.ball.position.x;
+        this.ballVel.y -= 21.5 * dt;
+        this.ball.position.x += this.ballVel.x * dt;
+        this.ball.position.y += this.ballVel.y * dt;
+        this.ball.position.z += this.ballVel.z * dt;
+
+        // ชนเน็ต (ตรวจทั้งความกว้าง Z และ anti-tunneling ข้าม X=0)
+        const crossedNet = (prevBallX < 0 && this.ball.position.x >= 0) || (prevBallX > 0 && this.ball.position.x <= 0);
+        if ((crossedNet || Math.abs(this.ball.position.x) < 0.45) &&
+            Math.abs(this.ball.position.z) <= this.courtHalfW + 0.5 &&
+            this.ball.position.y < this.netHeight + 0.35) {
+            this.ballVel.x = -this.ballVel.x * 0.45;
+            this.ball.position.x = this.ballVel.x > 0 ? 0.5 : -0.5;
+            this.netFlashTimer = 0.25;
+            this.audio.tennisBounce();
+            this._emitSparks(this.ball.position, '#a855f7', 14);
+        }
+
+        // กระดอนพื้นสนาม
+        if (this.ball.position.y <= 0.42) {
+            this.ball.position.y = 0.42;
+            this.ballVel.y = Math.abs(this.ballVel.y) * 0.78;
+            if (this.ballVel.y < 3.5) this.ballVel.y = 4.2;
+            this.audio.tennisBounce();
+
+            const outZ = Math.abs(this.ball.position.z) > this.courtHalfW + 0.4;
+            const outX = Math.abs(this.ball.position.x) > this.courtHalfL + 0.4;
+            if (outZ || outX) {
+                const winTeam = this.lastHitTeam === 0 ? 'RED' : 'BLUE';
+                this.awardPoint(winTeam, 'OUT OF BOUNDS');
+                return;
+            }
+
+            const ballSide = this.ball.position.x < 0 ? 0 : 1;
+            if (ballSide !== this.lastHitTeam) {
+                this.bounceCountOnSide++;
+                if (this.bounceCountOnSide >= 2) {
+                    this.awardPoint(this.lastHitTeam === 0 ? 'BLUE' : 'RED', 'DOUBLE BOUNCE');
+                    return;
+                }
+            }
+        }
+
+        // ออกหลังเส้นไกลเกินขอบ
+        if (Math.abs(this.ball.position.x) > this.courtHalfL + 3.2 || Math.abs(this.ball.position.z) > this.courtHalfW + 3.0) {
+            const winTeam = this.lastHitTeam === 0 ? 'RED' : 'BLUE';
+            this.awardPoint(winTeam, 'OUT!');
+            return;
+        }
+
+        // อัปเดตเงาลูกบอล + Trail + Camera Shake
+        if (this.ballShadow) {
+            this.ballShadow.position.x = this.ball.position.x;
+            this.ballShadow.position.z = this.ball.position.z;
+            const s = Math.max(0.4, 1.1 - this.ball.position.y * 0.08);
+            this.ballShadow.scaling.set(s, s, 1);
+        }
+
+        const tMesh = this.trailMeshes[this.trailIndex % this.trailMeshes.length];
+        if (tMesh) {
+            tMesh.isVisible = true;
+            tMesh.position.copyFrom(this.ball.position);
+            tMesh.scaling.setAll(1.0);
+        }
+        this.trailIndex++;
+        for (const tm of this.trailMeshes) {
+            if (tm.isVisible) {
+                tm.scaling.scaleInPlace(0.88);
+                if (tm.scaling.x < 0.15) tm.isVisible = false;
+            }
+        }
+
+        // สีเน็ตกระพริบเมื่อชน
+        if (this.netMat) {
+            const B = window.BABYLON;
+            this.netMat.emissiveColor = B.Color3.FromHexString(this.netFlashTimer > 0 ? '#ff00ff' : '#7c3aed');
+        }
+
+        // กล้องตามลูกบอลเบาๆ + สั่นเมื่อตีแรง
+        if (this.bCamera) {
+            const shakeX = (Math.random() - 0.5) * this.cameraShake;
+            const shakeY = (Math.random() - 0.5) * this.cameraShake;
+            this.bCamera.position.x += (this.ball.position.x * 0.18 + shakeX - this.bCamera.position.x) * Math.min(1, dt * 5);
+            this.bCamera.position.y = 21.5 + shakeY;
+            this.bCamera.setTarget(new window.BABYLON.Vector3(this.ball.position.x * 0.12, 0.5, 1.5));
+        }
+    }
+
+    render() {
+        if (this.bScene && this.engine) {
+            this.bScene.render();
+        }
+    }
+
+    updateHUD() {
+        const mins = Math.floor(this.matchTimer / 60);
+        const secs = Math.floor(this.matchTimer % 60).toString().padStart(2, '0');
+        const activeCount = Config.players.activeCount;
+        const modeLabel = activeCount >= 3 ? '2v2 DOUBLES' : (activeCount === 1 ? '1P vs AI' : '1v1 VERSUS');
+
+        const playerChips = this.players.map(p => {
+            const badge = p.isAI ? '🤖 AI' : '🎮 PAD';
+            return `
+                <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;padding:3px 8px;border-radius:8px;background:rgba(255,255,255,0.06);border-left:3px solid ${p.colorHex};">
+                    <strong>${p.name}</strong>
+                    <span style="opacity:0.8;">${badge}</span>
+                    <span style="color:#00f0ff;">⚡${Math.floor(p.specialCharge)}%</span>
+                </div>
+            `;
+        }).join('');
+
+        const bannerHtml = this.lastPointTimer > 0 ? `
+            <div style="position:fixed;top:24%;left:50%;transform:translateX(-50%);background:rgba(10,16,34,0.92);border:2px solid #00f0ff;padding:12px 28px;border-radius:14px;font-size:1.3rem;font-weight:900;color:#fff;box-shadow:0 0 28px rgba(0,240,255,0.45);z-index:30;">
+                ${this.lastPointBanner}
+            </div>
+        ` : '';
+
+        const summaryHtml = this.showSummary ? `
+            <div class="modal-overlay" style="z-index:40;">
+                <div class="modal-card" style="max-width:680px;border-color:#00f0ff;">
+                    <h2 style="font-size:1.75rem;color:#00f0ff;margin-bottom:8px;">${this.winnerText}</h2>
+                    <p style="color:var(--text-muted);margin-bottom:14px;">สกอร์สุดท้าย: 🔵 ${this.scoreBlue} — ${this.scoreRed} 🔴 | Rally สูงสุด: ${this.bestRally} ครั้ง</p>
+                    ${this.buildSummaryTableHTML(
+                        ['ผู้เล่น', 'ทีม', 'ตีได้', 'พลาด', 'ทำแต้ม', 'สถานะ'],
+                        this.players.map(p => ({
+                            cells: [
+                                `${p.name} (${p.isAI ? 'AI' : 'จอย'})`,
+                                p.team === 0 ? '🔵 ฟ้า' : '🔴 แดง',
+                                `${p.hits}`,
+                                `${p.misses}`,
+                                `${p.pointsWon}`,
+                                (this.winner === 'BLUE' && p.team === 0) || (this.winner === 'RED' && p.team === 1) ? '🏆 ชนะ' : '—'
+                            ],
+                            isWinner: (this.winner === 'BLUE' && p.team === 0) || (this.winner === 'RED' && p.team === 1)
+                        }))
+                    )}
+                    <p style="margin-top:14px;font-size:0.85rem;color:var(--text-muted);">กด <strong>ESC</strong> หรือปุ่มกลับหน้าหลักเพื่อออก</p>
+                </div>
+            </div>
+        ` : '';
+
+        this.setHUD(`
+            <div class="hud-top" style="align-items:flex-start;">
+                <div class="hud-card" style="border-color:#00f0ff;">
+                    <div style="font-size:0.75rem;color:#00f0ff;letter-spacing:1px;">CYBER TENNIS // ${modeLabel} • ⚡ BABYLON.JS</div>
+                    <div style="display:flex;align-items:center;gap:14px;margin-top:4px;font-size:1.45rem;font-weight:900;">
+                        <span style="color:#00f0ff;">🔵 ${this.scoreBlue}</span>
+                        <span style="font-size:0.9rem;opacity:0.65;">VS (เป้า ${this.targetScore})</span>
+                        <span style="color:#ff3366;">${this.scoreRed} 🔴</span>
+                    </div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;">⏱️ ${mins}:${secs} | Rally: ${this.rallyCount}</div>
+                </div>
+                <div class="hud-card" style="display:flex;flex-direction:column;gap:4px;">
+                    ${playerChips}
+                    <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;">✕ ปกติ | △/R2 แรง | ○ ลอยโด่ง | □/L2 ท่าพิเศษ</div>
+                </div>
+            </div>
+            ${bannerHtml}
+            ${summaryHtml}
+        `);
+    }
+
+    dispose() {
+        this.audio.stopBGM();
+        this.audio.stopVictoryMusic();
+        if (this._onResize) {
+            window.removeEventListener('resize', this._onResize);
+            this._onResize = null;
+        }
+        if (this.sparkSystem) {
+            this.sparkSystem.dispose();
+            this.sparkSystem = null;
+        }
+        if (this.glowLayer) {
+            this.glowLayer.dispose();
+            this.glowLayer = null;
+        }
+        if (this.bScene) {
+            this.bScene.dispose();
+            this.bScene = null;
+        }
+        if (this.engine) {
+            this.engine.dispose();
+            this.engine = null;
+        }
+        if (this.bjsCanvas) {
+            this.bjsCanvas.remove();
+            this.bjsCanvas = null;
+        }
+        if (this._threeCanvas) {
+            this._threeCanvas.style.visibility = 'visible';
+        }
+        this.players = [];
+        this.trailMeshes = [];
+        super.dispose();
+    }
+}
+
+        const GAME_CLASSES = [Game1Kart, Game2Blaster, Game3Sumo, Game4Soccer, Game5Zombies, Game6Tennis];
 
 class MiniGameConsoleApp {
     constructor() {
@@ -6218,10 +7548,28 @@ class MiniGameConsoleApp {
                 model = createSumoMech(g.accentHex, 0.72);
             } else if (idx === 3) {
                 model = createDetailedSoccerBall(0.68);
-            } else {
+            } else if (idx === 4) {
                 model = createDetailedZombie(false);
                 model.scale.setScalar(0.55);
                 model.position.y = -0.45;
+            } else {
+                // โมเดลแร็กเกตและลูกเทนนิสเรืองแสงสำหรับ Cyber Tennis
+                model = new THREE.Group();
+                const rim = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.55, 0.08, 12, 24),
+                    new THREE.MeshStandardMaterial({ color: g.accentHex, emissive: g.accentHex, emissiveIntensity: 1.2 })
+                );
+                const handle = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.06, 0.06, 0.65, 10),
+                    new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.7, roughness: 0.25 })
+                );
+                handle.position.y = -0.85;
+                const tBall = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.24, 16, 16),
+                    new THREE.MeshStandardMaterial({ color: 0xeaff00, emissive: 0xbfff00, emissiveIntensity: 1.0 })
+                );
+                tBall.position.set(0.42, 0.32, 0.25);
+                model.add(rim, handle, tBall);
             }
             iconMesh.add(model);
             iconMesh.position.set(0, 2.95, 0.25);

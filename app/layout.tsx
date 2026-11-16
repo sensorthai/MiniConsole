@@ -15,6 +15,7 @@ export default function RootLayout({
     <html lang="th">
       <head>
         <link rel="stylesheet" href="/game.css" />
+        <script src="https://cdn.babylonjs.com/babylon.js"></script>
         <script
           type="importmap"
           dangerouslySetInnerHTML={{

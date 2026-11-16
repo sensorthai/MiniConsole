@@ -5,6 +5,7 @@
  * - แสดงผลสรุปสถิติของผู้เข้าแข่งขัน (ประตูที่ยิง, สัมผัสบอล, บูสต์ที่ใช้) และอันดับที่ได้เมื่อจบเกม
  */
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as CANNON from 'cannon-es';
 import { GameBase } from '../js/gameBase.js';
 import { Config } from '../js/config.js';
@@ -94,7 +95,40 @@ export class Game4Soccer extends GameBase {
         this.camera.lookAt(centerX, 1.0, centerZ);
     }
 
+    createBillboardAdTexture(title, subtitle, bgCss, accentCss) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 192;
+        const ctx = canvas.getContext('2d');
+
+        const grad = ctx.createLinearGradient(0, 0, 512, 192);
+        grad.addColorStop(0, '#070b18');
+        grad.addColorStop(0.5, bgCss);
+        grad.addColorStop(1, '#070b18');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 512, 192);
+
+        ctx.strokeStyle = accentCss;
+        ctx.lineWidth = 8;
+        ctx.strokeRect(8, 8, 496, 176);
+
+        ctx.fillStyle = accentCss;
+        ctx.font = 'bold 42px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(title, 256, 76);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.fillText(subtitle, 256, 134);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
+    }
+
     buildStadium() {
+        const fallbackGroup = new THREE.Group();
         const pitchMat = new THREE.MeshStandardMaterial({
             color: 0x0c2438,
             roughness: 0.42,
@@ -103,7 +137,7 @@ export class Game4Soccer extends GameBase {
         const pitch = new THREE.Mesh(new THREE.BoxGeometry(this.pitchL * 2, 1, this.pitchW * 2), pitchMat);
         pitch.position.y = -0.5;
         pitch.receiveShadow = true;
-        this.scene.add(pitch);
+        fallbackGroup.add(pitch);
 
         const ring = new THREE.Mesh(
             new THREE.RingGeometry(4.8, 5.15, 48),
@@ -111,7 +145,7 @@ export class Game4Soccer extends GameBase {
         );
         ring.rotation.x = -Math.PI / 2;
         ring.position.y = 0.03;
-        this.scene.add(ring);
+        fallbackGroup.add(ring);
 
         const midLine = new THREE.Mesh(
             new THREE.PlaneGeometry(0.35, this.pitchW * 2),
@@ -119,37 +153,22 @@ export class Game4Soccer extends GameBase {
         );
         midLine.rotation.x = -Math.PI / 2;
         midLine.position.y = 0.03;
-        this.scene.add(midLine);
+        fallbackGroup.add(midLine);
+        this.scene.add(fallbackGroup);
 
-        const buildDetailedGoal = (xPos, colorHex) => {
+        const buildGoalOverlay = (xPos, colorHex) => {
             const goalGroup = new THREE.Group();
-            const postMat = new THREE.MeshStandardMaterial({
-                color: 0xffffff,
-                emissive: colorHex,
-                emissiveIntensity: 1.5,
-                roughness: 0.2,
-                metalness: 0.8
-            });
-            const h = 5.8;
-            const postL = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, h, 16), postMat);
-            postL.position.set(0, h / 2, -this.goalWidth);
-            const postR = postL.clone();
-            postR.position.z = this.goalWidth;
-
-            const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, this.goalWidth * 2 + 0.5, 16), postMat);
-            crossbar.rotation.x = Math.PI / 2;
-            crossbar.position.set(0, h, 0);
-
+            const h = 5.4;
             const netBox = new THREE.Mesh(
                 new THREE.BoxGeometry(4.2, h, this.goalWidth * 2),
                 new THREE.MeshBasicMaterial({
                     color: colorHex,
                     wireframe: true,
                     transparent: true,
-                    opacity: 0.48
+                    opacity: 0.42
                 })
             );
-            netBox.position.set(Math.sign(xPos) * 2.1, h / 2, 0);
+            netBox.position.set(Math.sign(xPos) * 2.2, h / 2, 0);
 
             // เส้นโกลเรืองแสงบนพื้นสนามเพื่อให้เห็นจังหวะบอลข้ามเส้นชัดเจน
             const goalLine = new THREE.Mesh(
@@ -159,13 +178,65 @@ export class Game4Soccer extends GameBase {
             goalLine.rotation.x = -Math.PI / 2;
             goalLine.position.set(0, 0.05, 0);
 
-            goalGroup.add(postL, postR, crossbar, netBox, goalLine);
+            goalGroup.add(netBox, goalLine);
             goalGroup.position.x = xPos;
             this.scene.add(goalGroup);
         };
 
-        buildDetailedGoal(-this.pitchL, 0x00f0ff);
-        buildDetailedGoal(this.pitchL, 0xff2a6d);
+        buildGoalOverlay(-this.pitchL, 0x00f0ff);
+        buildGoalOverlay(this.pitchL, 0xff2a6d);
+
+        const ads = [
+            ['ROCKET SOCCER', 'BLENDER 3D STADIUM', '#0c2b2f', '#05ffa1'],
+            ['MINI CONSOLE 3D', '4-PLAYER PARTY LEAGUE', '#112a4a', '#00f0ff'],
+            ['PS3 WIRELESS', '60Hz ESP32 BRIDGE', '#2a1038', '#ff2a6d'],
+            ['TWIN TURBO', 'MAX BOOST OVERDRIVE', '#331c08', '#ffaa00'],
+            ['CYBER CUP', 'CHAMPIONS ARENA', '#1b1440', '#a855f7'],
+            ['SUPER STRIKE', 'HOLD R1 TO BOOST', '#0f293d', '#38bdf8'],
+            ['AERIAL JUMP', 'PRESS L1 / TRIANGLE', '#380d22', '#fb7185'],
+            ['BLUE VS RED', '3-MINUTE SHOWDOWN', '#0c2e2c', '#2dd4bf'],
+            ['PIXEL MOTORS', 'PRO ROCKET CHASSIS', '#291a08', '#facc15'],
+            ['ANTIGRAVITY', 'POWERED BY BLENDER', '#0d2636', '#00f0ff']
+        ];
+
+        const gltfLoader = new GLTFLoader();
+        const modelUrl = window.location.protocol === 'file:'
+            ? 'public/models/soccer_stadium.glb'
+            : '/models/soccer_stadium.glb';
+
+        gltfLoader.load(
+            modelUrl,
+            (gltf) => {
+                if (!this.scene || this._disposed) return;
+                const stadium = gltf.scene;
+                stadium.traverse((child) => {
+                    if (!child.isMesh) return;
+                    const name = child.name || '';
+                    if (name.startsWith('Billboard_Screen_')) {
+                        const idx = parseInt(name.replace('Billboard_Screen_', ''), 10) || 0;
+                        const ad = ads[idx % ads.length];
+                        const tex = this.createBillboardAdTexture(ad[0], ad[1], ad[2], ad[3]);
+                        child.material = new THREE.MeshStandardMaterial({
+                            map: tex,
+                            emissive: 0xffffff,
+                            emissiveMap: tex,
+                            emissiveIntensity: 0.9,
+                            roughness: 0.25,
+                            metalness: 0.1
+                        });
+                    } else {
+                        child.receiveShadow = true;
+                        child.castShadow = !name.startsWith('Stadium_Pitch') && !name.startsWith('Pitch_') && !name.startsWith('Line_') && !name.startsWith('Diorama_');
+                    }
+                });
+                this.scene.add(stadium);
+                fallbackGroup.visible = false;
+            },
+            undefined,
+            (err) => {
+                console.warn('Could not load soccer_stadium.glb, using fallback pitch:', err);
+            }
+        );
 
         const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
         groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
@@ -224,6 +295,7 @@ export class Game4Soccer extends GameBase {
                 yVel: 0,
                 grounded: true,
                 boost: 100,
+                turboTimer: 0,
                 goals: 0,
                 touches: 0,
                 touchCooldown: 0,
@@ -316,6 +388,7 @@ export class Game4Soccer extends GameBase {
 
         this.cars.forEach((c) => {
             if (c.touchCooldown > 0) c.touchCooldown -= dt;
+            if (c.turboTimer > 0) c.turboTimer -= dt;
 
             for (let i = this.powerups.length - 1; i >= 0; i--) {
                 const p = this.powerups[i];
@@ -323,7 +396,7 @@ export class Game4Soccer extends GameBase {
                     this.scene.remove(p.mesh);
                     this.powerups.splice(i, 1);
                     c.boost = 100;
-                    c.speed = Math.min(28, c.speed + 9);
+                    c.turboTimer = 4.0;
                     this.audio.powerup();
                     this.particles.explode(c.mesh.position, 0x05ffa1, 24, 7);
                 }
@@ -334,10 +407,15 @@ export class Game4Soccer extends GameBase {
             let throttle = 0, steer = 0, boost = false, jump = false;
 
             if (isHuman) {
-                const stickThrottle = Math.abs(pad.ly) > 0.05 ? -pad.ly : 0;
-                const btnThrottle = (pad.cross || pad.r2Btn) ? 1 : (pad.circle || pad.l2Btn ? -0.7 : 0);
-                throttle = stickThrottle !== 0 ? stickThrottle : btnThrottle;
-                steer = -pad.lx;
+                const stickThrottle = Math.abs(pad.ly) > 0.12 ? -pad.ly : 0;
+                const dpadThrottle = (pad.up ? 1 : 0) - (pad.down ? 0.8 : 0);
+                const btnThrottle = (pad.cross || pad.r2Btn) ? 1 : (pad.circle || pad.l2Btn ? -0.75 : 0);
+                throttle = dpadThrottle !== 0 ? dpadThrottle : (btnThrottle !== 0 ? btnThrottle : stickThrottle);
+
+                const stickSteer = Math.abs(pad.lx) > 0.12 ? -pad.lx : 0;
+                const dpadSteer = (pad.left ? 1 : 0) - (pad.right ? 1 : 0);
+                steer = dpadSteer !== 0 ? dpadSteer : stickSteer;
+
                 boost = pad.r1 || pad.square;
                 jump = pad.justPressed.triangle || pad.justPressed.l1;
             } else {
@@ -371,13 +449,14 @@ export class Game4Soccer extends GameBase {
                 }
             }
 
-            const topSpeed = (boost && c.boost > 0) ? 28.0 : 18.5;
+            const baseSpeed = c.turboTimer > 0 ? 26.0 : 21.0;
+            const topSpeed = (boost && c.boost > 0) ? (c.turboTimer > 0 ? 36.0 : 31.0) : baseSpeed;
             if (boost && c.boost > 0) {
-                c.boost = Math.max(0, c.boost - dt * 30);
+                c.boost = Math.max(0, c.boost - dt * 28);
                 c.boostTimeUsed += dt;
                 this.particles.emit(c.mesh.position, { x: 0, y: 1, z: 0 }, 0xffb800, 0.45, 0.25, 2, 2);
             } else {
-                c.boost = Math.min(100, c.boost + dt * 15);
+                c.boost = Math.min(100, c.boost + dt * 18);
             }
 
             const ud = c.mesh.userData;
@@ -389,11 +468,11 @@ export class Game4Soccer extends GameBase {
                     }
                 });
                 if (ud.nozzleCore) {
-                    ud.nozzleCore.scale.setScalar(boost && c.boost > 0 ? 1.35 : 0.9);
+                    ud.nozzleCore.scale.setScalar((boost && c.boost > 0) || c.turboTimer > 0 ? 1.45 : 0.9);
                 }
             }
 
-            c.yaw += steer * 2.3 * dt;
+            c.yaw += steer * 2.8 * dt;
             const forward = new THREE.Vector3(Math.sin(c.yaw), 0, Math.cos(c.yaw));
             c.mesh.position.addScaledVector(forward, throttle * topSpeed * dt);
             c.mesh.position.x = THREE.MathUtils.clamp(c.mesh.position.x, -this.pitchL + 1.2, this.pitchL - 1.2);
@@ -415,7 +494,7 @@ export class Game4Soccer extends GameBase {
                 else this.lastTouchRed = c;
 
                 toBall.normalize();
-                const hitPower = boost ? 26 : 18;
+                const hitPower = (boost && c.boost > 0) || c.turboTimer > 0 ? 32 : 22;
                 this.ball.body.velocity.set(toBall.x * hitPower, Math.max(5.5, toBall.y * 12), toBall.z * hitPower);
                 this.ball.body.angularVelocity.set(toBall.z * 6, 2.0, -toBall.x * 6);
                 this.audio.hit();

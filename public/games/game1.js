@@ -7,9 +7,44 @@
  * - ซุ้มป้าย FINISH และเส้นชัยตารางหมากรุกขนาดใหญ่ชัดเจนสวยงาม
  */
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GameBase } from '../js/gameBase.js';
 import { Config } from '../js/config.js';
-import { createDetailedKart, createDetailedItemBox, createBlenderTrackArch } from '../js/models.js';
+import { createDetailedKart, createDetailedItemBox } from '../js/models.js';
+
+const GRAND_PRIX_PTS_PX = [
+    [533.0, 72.0], [510.0, 72.0], [494.6, 71.8], [466.1, 72.8], [450.4, 71.8],
+    [432.0, 72.0], [410.0, 72.0], [388.0, 72.0], [366.0, 72.0], [344.0, 72.0],
+    [322.0, 72.0], [301.6, 72.6], [275.7, 77.8], [259.2, 86.4], [244.0, 102.1],
+    [233.5, 124.4], [230.4, 137.5], [229.3, 178.7], [230.2, 192.1], [233.2, 216.3],
+    [236.2, 234.9], [240.5, 258.1], [243.4, 284.2], [237.8, 302.9], [220.2, 317.9],
+    [199.7, 327.7], [175.5, 337.7], [154.2, 347.4], [134.5, 357.5], [113.8, 370.9],
+    [95.4, 387.1], [84.3, 400.2], [72.0, 421.5], [64.8, 442.9], [61.4, 465.9],
+    [61.1, 483.9], [64.0, 509.4], [71.4, 532.9], [82.7, 554.0], [95.7, 569.3],
+    [113.3, 584.1], [133.2, 596.6], [151.9, 606.1], [175.0, 616.4], [195.4, 625.0],
+    [219.4, 635.7], [238.1, 645.0], [261.6, 658.8], [278.5, 671.1], [296.6, 685.5],
+    [314.8, 697.0], [335.8, 704.5], [361.6, 708.4], [381.5, 709.0], [408.8, 707.1],
+    [435.9, 702.6], [453.8, 698.8], [475.2, 693.4], [500.4, 686.2], [521.8, 679.5],
+    [543.3, 672.1], [566.4, 664.0], [588.3, 656.5], [610.1, 649.1], [631.0, 642.8],
+    [667.8, 640.6], [683.3, 643.8], [707.3, 652.2], [730.6, 661.2], [747.9, 667.7],
+    [773.1, 677.0], [791.0, 682.8], [812.8, 688.7], [834.6, 693.2], [862.3, 696.3],
+    [884.7, 693.0], [907.1, 684.1], [922.6, 671.7], [934.8, 652.7], [941.7, 633.7],
+    [946.7, 609.3], [948.9, 583.8], [948.7, 569.1], [945.4, 542.3], [940.2, 523.9],
+    [929.6, 501.9], [915.0, 482.0], [901.0, 468.4], [882.6, 455.5], [860.6, 444.2],
+    [841.6, 436.6], [816.2, 431.0], [794.9, 430.2], [746.3, 433.2], [734.2, 434.5],
+    [712.2, 436.5], [689.9, 438.7], [663.6, 441.5], [630.5, 445.0], [592.8, 448.7],
+    [584.1, 449.5], [528.6, 448.9], [518.9, 446.1], [492.2, 436.4], [473.8, 425.6],
+    [457.2, 410.7], [446.8, 394.1], [442.4, 363.0], [449.6, 338.5], [461.1, 321.3],
+    [478.0, 308.5], [497.5, 300.8], [523.4, 297.1], [542.5, 298.3], [567.4, 303.8],
+    [584.2, 309.3], [608.1, 316.5], [629.7, 322.2], [655.5, 328.1], [679.2, 332.7],
+    [702.7, 336.5], [718.5, 338.4], [791.5, 338.5], [803.7, 336.3], [832.9, 328.7],
+    [853.8, 319.3], [872.3, 306.5], [886.2, 292.8], [901.0, 273.6], [912.7, 253.4],
+    [920.6, 232.5], [923.2, 193.7], [921.1, 180.9], [910.2, 154.6], [898.3, 136.2],
+    [884.0, 119.0], [869.8, 105.0], [850.2, 92.2], [830.6, 84.9], [810.2, 80.0],
+    [788.2, 76.6], [749.4, 72.7], [731.0, 72.0], [709.0, 72.0], [687.0, 72.0],
+    [665.0, 72.0], [643.0, 72.0], [621.0, 72.0], [599.0, 72.0], [577.0, 72.0],
+    [555.0, 72.0]
+];
 
 export class Game1Kart extends GameBase {
     constructor(app, meta) {
@@ -33,11 +68,14 @@ export class Game1Kart extends GameBase {
         this.lastCountdownStep = 5;
         this.raceStarted = false;
         this.raceTime = 0;
+        this._disposed = false;
     }
 
     init() {
         super.init();
-        this.scene.fog = new THREE.FogExp2(0x070913, 0.0025);
+        this._disposed = false;
+        this.scene.background = new THREE.Color(0x6eb5e5);
+        this.scene.fog = new THREE.FogExp2(0x6eb5e5, 0.0012);
         this.buildEnvironment();
         this.buildTrack();
         this.spawnKarts();
@@ -56,46 +94,20 @@ export class Game1Kart extends GameBase {
     }
 
     dispose() {
+        this._disposed = true;
         this.audio.stopEngine();
         this.audio.stopVictoryMusic();
         super.dispose();
     }
 
     buildEnvironment() {
-        const grid = new THREE.GridHelper(1200, 120, 0x00f0ff, 0x101830);
-        grid.position.y = -0.5;
-        this.scene.add(grid);
+        const hemi = new THREE.HemisphereLight(0xdbeafe, 0x2a4d22, 1.15);
+        this.scene.add(hemi);
 
-        const towerGeo = new THREE.BoxGeometry(1, 1, 1);
-        for (let i = 0; i < 64; i++) {
-            const angle = (i / 64) * Math.PI * 2;
-            const distX = 335 + (i % 4) * 28;
-            const distZ = 240 + (i % 4) * 24;
-            const h = 24 + (i * 9 % 55);
-            const bldgGroup = new THREE.Group();
-
-            const mat = new THREE.MeshStandardMaterial({
-                color: 0x0a1022,
-                roughness: 0.25,
-                metalness: 0.85,
-                emissive: i % 2 === 0 ? 0x003355 : 0x330033,
-                emissiveIntensity: 0.55
-            });
-            const tower = new THREE.Mesh(towerGeo, mat);
-            tower.scale.set(10, h, 10);
-            tower.position.y = h / 2 - 0.5;
-            bldgGroup.add(tower);
-
-            const crownMat = new THREE.MeshBasicMaterial({
-                color: i % 2 === 0 ? 0x00f0ff : 0xff2a6d
-            });
-            const crown = new THREE.Mesh(new THREE.BoxGeometry(10.5, 0.65, 10.5), crownMat);
-            crown.position.y = h - 0.8;
-            bldgGroup.add(crown);
-
-            bldgGroup.position.set(Math.cos(angle) * distX, 0, Math.sin(angle) * distZ);
-            this.scene.add(bldgGroup);
-        }
+        const sun = new THREE.DirectionalLight(0xffffff, 2.1);
+        sun.position.set(45, 95, 65);
+        sun.castShadow = true;
+        this.scene.add(sun);
     }
 
     getTrackPoint(t) {
@@ -252,165 +264,54 @@ export class Game1Kart extends GameBase {
     }
 
     buildTrack() {
-        const segments = 480;
+        const TRACK_SCALE = 1.6;
+        const PX_TO_M = 0.12 * TRACK_SCALE;
+        const roadY = 0.08;
+
+        // 1. สร้างเส้นทางหลัก (Centerline) จากพิกัดสนาม Grand Prix Circuit (1:1 กับโมเดล Blender)
+        const rawPts = GRAND_PRIX_PTS_PX.map(([px, py]) => new THREE.Vector3(
+            (px - 512.0) * PX_TO_M,
+            roadY,
+            -(py - 405.5) * PX_TO_M
+        ));
+        const curve = new THREE.CatmullRomCurve3(rawPts, true, "catmullrom", 0.35);
+        const segments = 360;
+        this.trackPoints = curve.getSpacedPoints(segments);
+        this.trackPoints.pop();
+
         for (let i = 0; i < segments; i++) {
-            this.trackPoints.push(this.getTrackPoint(i / segments));
-        }
-
-        const roadGeo = new THREE.BufferGeometry();
-        const positions = [];
-        const uvs = [];
-        const indices = [];
-
-        for (let i = 0; i <= segments; i++) {
-            const p0 = this.trackPoints[i % segments];
+            const p0 = this.trackPoints[i];
             const p1 = this.trackPoints[(i + 1) % segments];
             const tangent = new THREE.Vector3().subVectors(p1, p0).normalize();
             const normal = new THREE.Vector3(-tangent.z, 0, tangent.x);
-            if (i < segments) {
-                this.trackNormals.push(normal.clone());
-            }
-
-            const left = p0.clone().addScaledVector(normal, this.trackWidth * 0.5);
-            const right = p0.clone().addScaledVector(normal, -this.trackWidth * 0.5);
-
-            positions.push(left.x, 0.02, left.z, right.x, 0.02, right.z);
-            uvs.push(0, i * 0.25, 1, i * 0.25);
-
-            if (i < segments) {
-                const base = i * 2;
-                indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
-            }
-
-            if (i % 4 === 0 && i < segments) {
-                const curbColor = i % 8 === 0 ? 0x00f0ff : 0xff2a6d;
-                const curbMat = new THREE.MeshStandardMaterial({
-                    color: curbColor,
-                    emissive: curbColor,
-                    emissiveIntensity: 1.25
-                });
-                const postL = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.55, 1.0), curbMat);
-                postL.position.copy(left).setY(0.28);
-                postL.lookAt(p1.clone().addScaledVector(normal, this.trackWidth * 0.5).setY(0.28));
-                const postR = postL.clone();
-                postR.position.copy(right).setY(0.28);
-                this.scene.add(postL, postR);
-            }
+            this.trackNormals.push(normal);
         }
 
-        roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        roadGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-        roadGeo.setIndex(indices);
-        roadGeo.computeVertexNormals();
-
-        const roadMat = new THREE.MeshStandardMaterial({
-            color: 0x161c2e,
-            roughness: 0.38,
-            metalness: 0.65,
-            side: THREE.DoubleSide
-        });
-        const roadMesh = new THREE.Mesh(roadGeo, roadMat);
-        roadMesh.receiveShadow = true;
-        this.scene.add(roadMesh);
-
-        // ==================== ซุ้มป้าย FINISH และเส้นชัยตารางหมากรุกขนาดใหญ่สวยงาม (อยู่ด้านหน้าจุดออกตัวให้เห็นเต็มป้ายชัดเจน) ====================
-        const finishSegIdx = 5;
-        const startPt = this.trackPoints[finishSegIdx];
-        const nextPt = this.trackPoints[finishSegIdx + 1];
-        const startHeading = Math.atan2(nextPt.x - startPt.x, nextPt.z - startPt.z);
-
-        const archGroup = new THREE.Group();
-        archGroup.position.copy(startPt);
-        archGroup.rotation.y = startHeading;
-
-        // 1. เส้นชัยตารางหมากรุกบนพื้นถนน
-        const checkerTex = this.createCheckeredRoadTexture();
-        const checkerLine = new THREE.Mesh(
-            new THREE.PlaneGeometry(this.trackWidth + 0.4, 3.8),
-            new THREE.MeshBasicMaterial({ map: checkerTex, side: THREE.DoubleSide })
-        );
-        checkerLine.rotation.x = -Math.PI / 2;
-        checkerLine.position.y = 0.05;
-        archGroup.add(checkerLine);
-
-        // 2. เสาโครงถักนีออนขนาดใหญ่ซ้าย-ขวา
-        const pillarDarkMat = new THREE.MeshStandardMaterial({
-            color: 0x121b33,
-            roughness: 0.25,
-            metalness: 0.88
-        });
-        const neonCyanMat = new THREE.MeshStandardMaterial({
-            color: 0x00f0ff,
-            emissive: 0x00f0ff,
-            emissiveIntensity: 1.8
-        });
-        const neonGoldMat = new THREE.MeshStandardMaterial({
-            color: 0xffb800,
-            emissive: 0xffb800,
-            emissiveIntensity: 1.8
-        });
-
-        const gantrySpan = this.trackWidth * 0.56;
-        const gantryHeight = 6.6;
-
-        [-1, 1].forEach((side) => {
-            const pCol = new THREE.Group();
-            pCol.position.set(side * gantrySpan, 0, 0);
-
-            const mainTower = new THREE.Mesh(new THREE.BoxGeometry(1.3, gantryHeight, 1.3), pillarDarkMat);
-            mainTower.position.y = gantryHeight / 2;
-            pCol.add(mainTower);
-
-            const basePlinth = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.8, 2.1), neonCyanMat);
-            basePlinth.position.y = 0.4;
-            pCol.add(basePlinth);
-
-            // วงแหวนไฟนีออนคาดเสา
-            for (let r = 1; r <= 3; r++) {
-                const ring = new THREE.Mesh(
-                    new THREE.BoxGeometry(1.55, 0.26, 1.55),
-                    r % 2 === 0 ? neonGoldMat : neonCyanMat
-                );
-                ring.position.y = r * 1.4;
-                pCol.add(ring);
+        // 2. โหลดโมเดล 3D สนามแข่ง Grand Prix Circuit ที่สร้างจาก Blender (.glb)
+        const gltfLoader = new GLTFLoader();
+        gltfLoader.load(
+            "/models/grand_prix_circuit.glb",
+            (gltf) => {
+                if (!this.scene || this._disposed) return;
+                const circuit = gltf.scene;
+                circuit.scale.setScalar(TRACK_SCALE);
+                circuit.traverse((child) => {
+                    if (!child.isMesh) return;
+                    const n = child.name || "";
+                    if (n === "Collision_Mesh" || n === "Racing_Line" || n.startsWith("Checkpoint_")) {
+                        child.visible = false;
+                    } else {
+                        child.receiveShadow = true;
+                        child.castShadow = n.startsWith("Tree_") || n.startsWith("Finish_") || n.startsWith("Control_") || n.startsWith("Pit_") || n.startsWith("Grandstand_") || n.startsWith("Billboard_") || n.startsWith("Sponsor_");
+                    }
+                });
+                this.scene.add(circuit);
+            },
+            undefined,
+            (err) => {
+                console.warn("Could not load grand_prix_circuit.glb (fallback path active):", err);
             }
-
-            // คริสตัลไฟหมุนบนยอดเสาซุ้มเส้นชัย
-            const beacon = new THREE.Mesh(new THREE.OctahedronGeometry(0.9, 0), neonGoldMat);
-            beacon.position.y = gantryHeight + 1.0;
-            pCol.add(beacon);
-            this.finishArchElements.push(beacon);
-
-            archGroup.add(pCol);
-        });
-
-        // 3. ป้ายบิลบอร์ด FINISH ขนาดใหญ่พิเศษเหนือถนน (เห็นชัดทั้งด้านหน้าและด้านหลัง)
-        const bannerTex = this.createFinishBannerTexture();
-        const bannerWidth = this.trackWidth + 3.4;
-        const bannerHeight = 3.4;
-        const bannerFaceMat = new THREE.MeshBasicMaterial({ map: bannerTex });
-        const bannerRimMat = new THREE.MeshStandardMaterial({
-            color: 0xffb800,
-            emissive: 0xff8800,
-            emissiveIntensity: 1.4,
-            metalness: 0.8,
-            roughness: 0.2
-        });
-        const bannerBox = new THREE.Mesh(
-            new THREE.BoxGeometry(bannerWidth, bannerHeight, 1.0),
-            [bannerRimMat, bannerRimMat, bannerRimMat, bannerRimMat, bannerFaceMat, bannerFaceMat]
         );
-        bannerBox.position.y = gantryHeight - 1.2;
-        archGroup.add(bannerBox);
-
-        // คานนีออนคู่บนและล่างป้าย FINISH
-        const topBeam = new THREE.Mesh(new THREE.BoxGeometry(bannerWidth + 0.8, 0.32, 1.25), neonCyanMat);
-        topBeam.position.y = gantryHeight + 0.65;
-        const botBeam = new THREE.Mesh(new THREE.BoxGeometry(bannerWidth + 0.8, 0.32, 1.25), neonGoldMat);
-        botBeam.position.y = gantryHeight - 3.05;
-        archGroup.add(topBeam, botBeam);
-
-        this.scene.add(archGroup);
 
         // ==================== แผ่นบูสต์ความเร็ว วางสลับซ้าย - กลาง - ขวา ====================
         const boostOffsets = [-3.6, 3.6, 0.0, -3.2, 3.2];
@@ -470,17 +371,6 @@ export class Game1Kart extends GameBase {
                 this.scene.add(boxMesh);
                 this.itemBoxes.push({ pos: boxPos.clone(), mesh: boxMesh, cooldown: 0 });
             });
-        }
-
-        // ==================== ซุ้มสนามแข่ง 3D และสภาพแวดล้อมจาก Blender (.glb) ====================
-        for (let i = 60; i < segments - 40; i += 80) {
-            const pt = this.trackPoints[i];
-            const nextPt = this.trackPoints[(i + 1) % segments];
-            const arch = createBlenderTrackArch();
-            arch.position.set(pt.x, 0, pt.z);
-            arch.rotation.y = Math.atan2(nextPt.x - pt.x, nextPt.z - pt.z);
-            arch.scale.setScalar(0.82);
-            this.scene.add(arch);
         }
     }
 
@@ -575,7 +465,10 @@ export class Game1Kart extends GameBase {
             this.bannerTimer -= dt;
         }
 
-        if (this.winner !== null) return;
+        if (this.winner !== null) {
+            this.audio.stopEngine();
+            return;
+        }
 
         for (const box of this.itemBoxes) {
             box.mesh.rotation.y += dt * 1.8;
@@ -834,9 +727,11 @@ export class Game1Kart extends GameBase {
             }
         }
 
-        // อัปเดตเสียงเครื่องยนต์ตามความเร็วรถผู้เล่นหลัก (หรือรถ P1)
+        // อัปเดตเสียงเครื่องยนต์ตามความเร็วรถผู้เล่นหลัก (หยุดเมื่อจบการแข่งขัน)
         const leadHuman = this.karts.find((k) => this.input.pads[k.index]?.connected) || this.karts[0];
-        if (leadHuman) {
+        if (this.winner) {
+            this.audio.stopEngine();
+        } else if (leadHuman) {
             const speedRatio = Math.abs(leadHuman.speed) / leadHuman.maxSpeed;
             this.audio.updateEngine(speedRatio, leadHuman.boostTimer > 0, leadHuman.driftDir !== 0);
         }
@@ -865,31 +760,69 @@ export class Game1Kart extends GameBase {
         ranked.forEach((k, idx) => rankMap.set(k.index, idx + 1));
 
         const segCount = this.trackPoints.length;
-        // แถบ Bar ด้านบน: แสดงอันดับ รอบที่แข่ง และความเร็วชัดเจน
-        const cards = this.karts.map((k) => {
+        const getProgressUnits = (k) => {
+            if (k.finished) return this.totalLaps * segCount + 1;
+            const curPt = this.trackPoints[k.waypointIdx];
+            const nextPt = this.trackPoints[(k.waypointIdx + 1) % segCount];
+            const segDist = curPt.distanceTo(nextPt) || 1;
+            const rem = k.mesh.position.distanceTo(nextPt);
+            const frac = 1 - THREE.MathUtils.clamp(rem / segDist, 0, 1);
+            return (k.lap - 1) * segCount + k.waypointIdx + frac;
+        };
+
+        const leader = ranked[0];
+        const leaderProg = leader ? getProgressUnits(leader) : 0;
+        const avgSegLen = segCount > 1
+            ? this.trackPoints[0].distanceTo(this.trackPoints[1]) || 4.0
+            : 4.0;
+        const refSpeed = Math.max(22, Math.abs(leader?.speed || 26));
+
+        const standingRows = ranked.map((k, idx) => {
             const pad = this.input.pads[k.index];
             const roleTag = pad && pad.connected ? 'จอย' : 'บอท';
-            const spd = Math.round(Math.abs(k.speed) * 4.2);
-            const rank = rankMap.get(k.index) || 1;
-            const curLap = Math.min(this.totalLaps, k.lap);
-            const lapStr = curLap === this.totalLaps
-                ? `<span style="color:#ff2a6d;font-weight:900;">🔥 รอบสุดท้าย ${curLap}/${this.totalLaps}</span>`
-                : `รอบที่ ${curLap}/${this.totalLaps}`;
+            const rank = idx + 1;
+            let gapText = 'LEADER';
+            let gapColor = '#05ffa1';
+            if (idx > 0) {
+                if (!this.raceStarted) {
+                    gapText = '+0.00s';
+                    gapColor = '#94a3b8';
+                } else {
+                    const gapUnits = Math.max(0, leaderProg - getProgressUnits(k));
+                    const gapSec = (gapUnits * avgSegLen) / refSpeed;
+                    gapText = `+${gapSec.toFixed(2)}s`;
+                    gapColor = gapSec < 1.5 ? '#ffb800' : '#e2e8f0';
+                }
+            }
             return `
-                <div class="hud-pill" style="border-color:${k.colorCss}">
-                    <span class="hud-rank-badge">#${rank}</span>
-                    <strong style="color:${k.colorCss}">P${k.index + 1} (${roleTag})</strong>
-                    <span>${lapStr}</span>
-                    <span>${spd} กม./ชม.</span>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:3px 0;font-size:0.82rem;font-weight:800;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span style="min-width:22px;color:${rank === 1 ? '#ffd700' : '#94a3b8'};">#${rank}</span>
+                        <span style="width:8px;height:8px;border-radius:50%;background:${k.colorCss};display:inline-block;"></span>
+                        <span style="color:${k.colorCss};">P${k.index + 1} <span style="font-weight:600;color:#94a3b8;font-size:0.74rem;">(${roleTag})</span></span>
+                    </div>
+                    <span style="color:${gapColor};font-variant-numeric:tabular-nums;">${gapText}</span>
                 </div>
             `;
         }).join('');
 
-        // ป้ายกำกับหน้าจอแยกของแต่ละคน (Split-Screen Viewport Indicator) เพื่อให้รู้ว่าจอไหนคือรถของใคร
+        const liveStandingHtml = !this.winner && !this.showSummary ? `
+            <div style="position:fixed;top:12px;right:16px;z-index:26;background:rgba(5,10,24,0.88);border:1.5px solid rgba(0,240,255,0.45);border-radius:12px;padding:8px 14px;min-width:210px;box-shadow:0 6px 24px rgba(0,0,0,0.55);pointer-events:none;backdrop-filter:blur(6px);">
+                <div style="font-size:0.72rem;font-weight:900;letter-spacing:1px;color:#00f0ff;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.12);padding-bottom:3px;">
+                    🏁 LIVE STANDING
+                </div>
+                ${standingRows}
+            </div>
+        ` : '';
+        // ป้ายกำกับหน้าจอของแต่ละคัน (แสดงชื่อผู้เล่น รอบ อันดับ และความเร็วที่มุมล่างซ้ายของแต่ละจอ)
         const splitCount = this.karts.length;
         let viewportOverlays = '';
-        if (splitCount > 1 && !this.winner && !this.showSummary) {
-            const layouts = splitCount === 2
+        if (!this.winner && !this.showSummary) {
+            const layouts = splitCount === 1
+                ? [
+                    { top: '72px', left: '20px', height: 'calc(100vh - 92px)', width: 'calc(100vw - 40px)', noBorder: true }
+                ]
+                : splitCount === 2
                 ? [
                     { top: '72px', left: '24px', height: 'calc(50vh - 80px)', width: 'calc(100vw - 48px)' },
                     { top: 'calc(50vh + 12px)', left: '24px', height: 'calc(50vh - 24px)', width: 'calc(100vw - 48px)' }
@@ -909,11 +842,24 @@ export class Game1Kart extends GameBase {
 
             viewportOverlays = this.karts.map((k, idx) => {
                 const box = layouts[idx];
+                const pad = this.input.pads[k.index];
+                const roleTag = pad && pad.connected ? 'จอย' : 'บอท';
+                const curLap = Math.min(this.totalLaps, k.lap);
+                const lapStr = curLap === this.totalLaps
+                    ? `<span style="color:#ff2a6d;font-weight:900;">🔥 รอบสุดท้าย ${curLap}/${this.totalLaps}</span>`
+                    : `รอบที่ ${curLap}/${this.totalLaps}`;
                 const rank = rankMap.get(k.index) || 1;
+                const spd = Math.round(Math.abs(k.speed) * 4.2);
+                const borderStyle = box.noBorder
+                    ? ''
+                    : `border:2px solid ${k.colorCss};border-radius:12px;box-shadow:inset 0 0 18px ${k.colorCss}33;`;
                 return `
-                    <div style="position:fixed;top:${box.top};left:${box.left};width:${box.width};height:${box.height};border:2px solid ${k.colorCss};border-radius:12px;pointer-events:none;box-shadow:inset 0 0 18px ${k.colorCss}33;">
-                        <div style="position:absolute;bottom:10px;left:12px;background:rgba(5,10,24,0.86);border:1px solid ${k.colorCss};color:${k.colorCss};padding:4px 12px;border-radius:8px;font-weight:900;font-size:0.84rem;">
-                            🎥 มุมมองรถ P${k.index + 1} (อันดับ #${rank})
+                    <div style="position:fixed;top:${box.top};left:${box.left};width:${box.width};height:${box.height};${borderStyle}pointer-events:none;">
+                        <div style="position:absolute;bottom:10px;left:12px;background:rgba(5,10,24,0.88);border:1px solid ${k.colorCss};color:${k.colorCss};padding:6px 14px;border-radius:10px;font-weight:900;font-size:0.88rem;display:flex;align-items:center;gap:10px;">
+                            <span>🎥 P${k.index + 1} (${roleTag})</span>
+                            <span style="color:#e2e8f0;">${lapStr}</span>
+                            <span style="color:#fff;">อันดับ #${rank}</span>
+                            <span style="color:#05ffa1;">⚡ ${spd} กม./ชม.</span>
                         </div>
                     </div>
                 `;
@@ -974,7 +920,7 @@ export class Game1Kart extends GameBase {
         let bannerHtml = '';
         if (this.bannerTimer > 0 && this.bannerMsg && !this.winner) {
             bannerHtml = `
-                <div style="position:fixed;top:86px;left:50%;transform:translateX(-50%);z-index:25;background:rgba(5,10,24,0.92);border:2px solid ${this.bannerColor};color:${this.bannerColor};padding:10px 26px;border-radius:999px;font-weight:900;font-size:1.05rem;box-shadow:0 0 24px ${this.bannerColor}66;pointer-events:none;white-space:nowrap;">
+                <div class="hud-pill" style="background:rgba(5,10,24,0.92);border:2px solid ${this.bannerColor};color:${this.bannerColor};padding:6px 18px;border-radius:999px;font-weight:900;font-size:0.95rem;box-shadow:0 0 18px ${this.bannerColor}55;white-space:nowrap;">
                     ${this.bannerMsg}
                 </div>
             `;
@@ -987,10 +933,10 @@ export class Game1Kart extends GameBase {
         this.setHUD(`
             <div class="hud-top-row">
                 <div class="hud-timer">🏁 แข่ง ${this.totalLaps} รอบ (เข้าเส้นชัยจบเกม) | ${timeLabel}</div>
-                ${cards}
+                ${bannerHtml}
             </div>
+            ${liveStandingHtml}
             ${countdownHtml}
-            ${bannerHtml}
             ${viewportOverlays}
             ${summaryHtml}
         `);

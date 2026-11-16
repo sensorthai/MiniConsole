@@ -275,6 +275,55 @@ class SoundEngine {
         }, 108);
     }
 
+    tennisHit(isPower = false) {
+        this.init();
+        if (!this.ctx || this.muted) return;
+        if (isPower) {
+            this.playTone(320, 0.14, 'sawtooth', 0.34, 980);
+            setTimeout(() => this.playTone(640, 0.10, 'triangle', 0.25, 220), 25);
+        } else {
+            this.playTone(460, 0.08, 'triangle', 0.28, 220);
+        }
+    }
+
+    tennisBounce() {
+        this.playTone(210, 0.055, 'sine', 0.20, 120);
+    }
+
+    startTennisBGM() {
+        this.init();
+        this.stopBGM();
+        this.bgmStep = 0;
+
+        // ดนตรี Synthwave / Cyber Arcade 130 BPM สำหรับ Cyber Tennis
+        const bassNotes = [130.81, 130.81, 164.81, 146.83]; // C3, C3, E3, D3
+        const leadPattern = [523.25, 659.25, 783.99, 1046.5, 783.99, 659.25, 587.33, 783.99];
+
+        this.bgmInterval = setInterval(() => {
+            if (!this.ctx || this.muted || this.ctx.state !== 'running') return;
+            const step = this.bgmStep % 64;
+            const bar = Math.floor(step / 16);
+            const beatStep = step % 16;
+            const root = bassNotes[bar];
+
+            if (beatStep % 4 === 0) {
+                this.playTone(88, 0.10, 'sine', 0.20, 38);
+            }
+            if (beatStep % 2 === 1) {
+                this.playTone(4800, 0.022, 'triangle', 0.04, 2400);
+            }
+            if (beatStep % 2 === 0) {
+                this.playTone(root, 0.09, 'sawtooth', 0.085, root * 0.98);
+            }
+            if (beatStep % 2 === 0) {
+                const f = leadPattern[(beatStep / 2) % leadPattern.length];
+                this.playTone(f, 0.08, 'triangle', 0.07);
+            }
+
+            this.bgmStep++;
+        }, 115);
+    }
+
     victoryFanfare() {
         this.init();
         if (!this.ctx || this.muted) return;

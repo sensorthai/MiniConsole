@@ -5,10 +5,11 @@
  * - แสดงผลสรุปสถิติของผู้เข้าแข่งขันและอันดับที่ได้เมื่อจบเกม
  */
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as CANNON from 'cannon-es';
 import { GameBase } from '../js/gameBase.js';
 import { Config } from '../js/config.js';
-import { createSumoMech, createDetailedItemBox } from '../js/models.js';
+import { createRocketCar, createDetailedItemBox } from '../js/models.js';
 
 export class Game3Sumo extends GameBase {
     constructor(app, meta) {
@@ -38,14 +39,46 @@ export class Game3Sumo extends GameBase {
 
         const bouncyMat = new CANNON.Material('sumoBot');
         const contact = new CANNON.ContactMaterial(bouncyMat, bouncyMat, {
-            friction: 0.05,
-            restitution: 1.25
+            friction: 0.2,
+            restitution: 0.85
         });
         this.world.addContactMaterial(contact);
         this.botMaterial = bouncyMat;
 
         this.buildRings();
         this.spawnBots();
+    }
+
+    createBillboardAdTexture(title, subtitle, bgCss, accentCss) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 192;
+        const ctx = canvas.getContext('2d');
+
+        const grad = ctx.createLinearGradient(0, 0, 512, 192);
+        grad.addColorStop(0, '#070b18');
+        grad.addColorStop(0.5, bgCss);
+        grad.addColorStop(1, '#070b18');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 512, 192);
+
+        ctx.strokeStyle = accentCss;
+        ctx.lineWidth = 8;
+        ctx.strokeRect(8, 8, 496, 176);
+
+        ctx.fillStyle = accentCss;
+        ctx.font = 'bold 42px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(title, 256, 76);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.fillText(subtitle, 256, 134);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
     }
 
     buildRings() {
@@ -84,7 +117,7 @@ export class Game3Sumo extends GameBase {
             ringGroup.add(rim);
 
             this.scene.add(ringGroup);
-            this.rings.push({ mesh: ringGroup, surfaceMat: mat, outer: r.outer, active: true, falling: false, idx });
+            this.rings.push({ mesh: ringGroup, fallbackMeshes: [topSurface, rim], surfaceMat: mat, outer: r.outer, active: true, falling: false, idx });
         });
 
         const groundShape = new CANNON.Cylinder(this.arenaRadius, this.arenaRadius, 2.0, 18);
@@ -95,6 +128,61 @@ export class Game3Sumo extends GameBase {
         const voidGrid = new THREE.GridHelper(120, 40, 0xff2a6d, 0x220015);
         voidGrid.position.y = -10;
         this.scene.add(voidGrid);
+
+        const ads = [
+            ['SUMO BOTS 3D', 'BLENDER CYBER STADIUM', '#112a4a', '#00f0ff'],
+            ['PS3 WIRELESS', '60Hz ESP32 BRIDGE', '#2a1038', '#ff2a6d'],
+            ['MINI CONSOLE 3D', '4-PLAYER PARTY ARENA', '#0c2b2f', '#00ffa3'],
+            ['GRAVITY SHOCK', 'COLLECT ITEM TO BLAST', '#331c08', '#ffaa00'],
+            ['TURBO DASH', 'PRESS X / SQUARE / R1', '#1b1440', '#a855f7'],
+            ['3 LIVES MODE', 'CONTROL & KNOCKOUT', '#380d22', '#fb7185']
+        ];
+
+        const gltfLoader = new GLTFLoader();
+        const modelUrl = window.location.protocol === 'file:'
+            ? 'public/models/sumo_arena.glb'
+            : '/models/sumo_arena.glb';
+
+        gltfLoader.load(
+            modelUrl,
+            (gltf) => {
+                if (!this.scene || this._disposed) return;
+                const arena = gltf.scene;
+                const children = [...arena.children];
+                children.forEach((child) => {
+                    const name = child.name || '';
+                    if (name.startsWith('SumoRing_0_')) {
+                        this.rings[0]?.mesh.add(child);
+                    } else if (name.startsWith('SumoRing_1_')) {
+                        this.rings[1]?.mesh.add(child);
+                    } else if (name.startsWith('SumoRing_2_')) {
+                        this.rings[2]?.mesh.add(child);
+                    } else if (name.startsWith('Billboard_Screen_')) {
+                        const idx = parseInt(name.replace('Billboard_Screen_', ''), 10) || 0;
+                        const ad = ads[idx % ads.length];
+                        const tex = this.createBillboardAdTexture(ad[0], ad[1], ad[2], ad[3]);
+                        child.material = new THREE.MeshStandardMaterial({
+                            map: tex,
+                            emissive: 0xffffff,
+                            emissiveMap: tex,
+                            emissiveIntensity: 0.9,
+                            roughness: 0.25,
+                            metalness: 0.1
+                        });
+                        this.scene.add(child);
+                    } else {
+                        this.scene.add(child);
+                    }
+                });
+                this.rings.forEach((r) => {
+                    r.fallbackMeshes.forEach((m) => { m.visible = false; });
+                });
+            },
+            undefined,
+            (err) => {
+                console.warn('Could not load sumo_arena.glb, using fallback rings:', err);
+            }
+        );
     }
 
     spawnBots() {
@@ -104,21 +192,23 @@ export class Game3Sumo extends GameBase {
         for (let i = 0; i < totalBots; i++) {
             const angle = (i / totalBots) * Math.PI * 2;
             const col = Config.players.colors[i];
-            const group = createSumoMech(col.hex, 1.15);
+            const group = createRocketCar(col.hex);
+            group.scale.setScalar(1.05);
 
             const sx = Math.cos(angle) * 5.5;
             const sz = Math.sin(angle) * 5.5;
-            group.position.set(sx, 1.5, sz);
+            group.position.set(sx, 0.85, sz);
             this.scene.add(group);
 
             const body = new CANNON.Body({
                 mass: 5.0,
-                shape: new CANNON.Sphere(1.15),
+                shape: new CANNON.Box(new CANNON.Vec3(1.05, 0.75, 1.75)),
                 material: this.botMaterial,
-                linearDamping: 0.35,
-                angularDamping: 0.4
+                linearDamping: 0.65,
+                angularDamping: 0.9,
+                fixedRotation: true
             });
-            body.position.set(sx, 1.5, sz);
+            body.position.set(sx, 0.85, sz);
 
             const botRecord = {
                 index: i,
@@ -126,6 +216,9 @@ export class Game3Sumo extends GameBase {
                 mesh: group,
                 body,
                 alive: true,
+                lives: 3,
+                yaw: 0,
+                respawnInvuln: 0,
                 survivalTime: 0,
                 hits: 0,
                 dashesUsed: 0,
@@ -156,6 +249,7 @@ export class Game3Sumo extends GameBase {
     getRankedBots() {
         return [...this.bots].sort((a, b) => {
             if (a.alive !== b.alive) return a.alive ? -1 : 1;
+            if (b.lives !== a.lives) return b.lives - a.lives;
             if (!a.alive && !b.alive) {
                 return b.survivalTime - a.survivalTime;
             }
@@ -228,6 +322,7 @@ export class Game3Sumo extends GameBase {
 
         this.bots.forEach((b) => {
             if (b.hitCooldown > 0) b.hitCooldown -= dt;
+            if (b.respawnInvuln > 0) b.respawnInvuln -= dt;
             if (!b.alive) return;
             b.survivalTime = this.elapsed;
             if (b.dashCooldown > 0) b.dashCooldown -= dt;
@@ -260,8 +355,17 @@ export class Game3Sumo extends GameBase {
             let fx = 0, fz = 0, dash = false;
 
             if (isHuman) {
-                fx = pad.lx;
-                fz = pad.ly;
+                const rawX = Math.abs(pad.lx) > 0.12 ? pad.lx : 0;
+                const rawZ = Math.abs(pad.ly) > 0.12 ? pad.ly : 0;
+                const dpadX = (pad.right ? 1 : 0) - (pad.left ? 1 : 0);
+                const dpadZ = (pad.down ? 1 : 0) - (pad.up ? 1 : 0);
+                fx = dpadX !== 0 ? dpadX : rawX;
+                fz = dpadZ !== 0 ? dpadZ : rawZ;
+                const mag = Math.hypot(fx, fz);
+                if (mag > 1) {
+                    fx /= mag;
+                    fz /= mag;
+                }
                 dash = pad.justPressed.cross || pad.justPressed.square || pad.justPressed.r1;
             } else {
                 const distFromCenter = Math.hypot(b.body.position.x, b.body.position.z);
@@ -281,15 +385,28 @@ export class Game3Sumo extends GameBase {
                 }
             }
 
-            b.body.applyForce(new CANNON.Vec3(fx * 95, 0, fz * 95), b.body.position);
+            b.body.wakeUp();
+            b.body.applyForce(new CANNON.Vec3(fx * 130, 0, fz * 130), b.body.position);
+
+            if (Math.hypot(fx, fz) > 0.12) {
+                b.yaw = Math.atan2(fx, fz);
+                b.body.quaternion.setFromEuler(0, b.yaw, 0);
+            }
+            const ud = b.mesh.userData;
+            if (ud && ud.wheels) {
+                const spd = Math.hypot(b.body.velocity.x, b.body.velocity.z);
+                ud.wheels.forEach((w) => {
+                    w.spinMesh.rotation.x += spd * dt * 1.8;
+                });
+            }
 
             if (dash && b.dashCooldown <= 0) {
-                b.dashCooldown = 1.6;
+                b.dashCooldown = 1.4;
                 b.dashesUsed++;
                 const dirLen = Math.hypot(fx, fz) || 1;
-                const ix = (fx / dirLen) * 68;
-                const iz = (fz / dirLen) * 68;
-                b.body.applyImpulse(new CANNON.Vec3(ix, 4, iz), b.body.position);
+                const ix = (fx / dirLen) * 42;
+                const iz = (fz / dirLen) * 42;
+                b.body.applyImpulse(new CANNON.Vec3(ix, 2, iz), b.body.position);
                 this.audio.boost();
                 this.particles.emit(b.mesh.position, { x: 0, y: 2, z: 0 }, b.colorHex, 0.5, 0.35, 16, 6);
             }
@@ -305,15 +422,26 @@ export class Game3Sumo extends GameBase {
 
         this.bots.forEach((b) => {
             b.mesh.position.copy(b.body.position);
-            b.mesh.quaternion.copy(b.body.quaternion);
+            b.mesh.rotation.set(0, b.yaw, 0);
 
             if (b.alive && b.body.position.y < -5.5) {
-                b.alive = false;
-                b.survivalTime = this.elapsed;
+                b.lives--;
                 this.audio.explosion();
-                this.graphics.triggerShake(0.6);
-                this.particles.explode(b.mesh.position, b.colorHex, 60, 12);
-                this.input.rumble(b.index, 255, 255, 450);
+                this.graphics.triggerShake(0.5);
+                this.particles.explode(b.mesh.position, b.colorHex, 50, 10);
+                this.input.rumble(b.index, 255, 255, 400);
+
+                if (b.lives > 0) {
+                    const ang = (b.index / Math.max(1, this.bots.length)) * Math.PI * 2;
+                    b.body.position.set(Math.cos(ang) * 2.5, 2.8, Math.sin(ang) * 2.5);
+                    b.body.velocity.set(0, 0, 0);
+                    b.body.angularVelocity.set(0, 0, 0);
+                    b.respawnInvuln = 1.5;
+                } else {
+                    b.alive = false;
+                    b.survivalTime = this.elapsed;
+                    b.mesh.visible = false;
+                }
             }
         });
 
@@ -342,7 +470,7 @@ export class Game3Sumo extends GameBase {
                 <div class="hud-pill" style="border-color:${b.colorCss};opacity:${b.alive ? 1 : 0.45}">
                     <span class="hud-rank-badge">#${rank}</span>
                     <strong style="color:${b.colorCss}">${label} (${roleTag})</strong>
-                    <span>${b.alive ? 'อยู่บนเวที' : 'ตกเวทีแล้ว'}</span>
+                    <span>${b.alive ? `❤️ ${b.lives} ชีวิต` : '❌ ตกเวทีครบ 3 ครั้ง'}</span>
                     <span>ชน: ${b.hits}</span>
                 </div>
             `;

@@ -1,10 +1,11 @@
 /**
  * Game 2: ARENA BLASTER (สมรภูมิปืนเลเซอร์ไซเบอร์)
- * - ปรับความเสียหายเมื่อโดนยิง: พลังชีวิตลดลงครั้งละ 10% (10 HP จาก 100 HP)
+ * - ปรับความเสียหายเมื่อโดนยิง: พลังชีวิตลดลงครั้งละ 5% (5 HP จาก 100 HP)
  * - เมื่อโดนยิงตาย: แสดงแบนเนอร์แจ้งเตือนการสังหารชัดเจน (ใครยิงใครตาย, สังหารครั้งที่เท่าไหร่, เวลานับถอยหลังเกิดใหม่ 1.5 วินาที) พร้อมเอฟเฟกต์ตัวละครล้มและป้ายสถานะเหนือหัว
  * - แสดงผลสรุปสถิติของผู้เข้าแข่งขันและอันดับที่ได้
  */
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GameBase } from '../js/gameBase.js';
 import { Config } from '../js/config.js';
 import { createCyberFighter, createDetailedItemBox } from '../js/models.js';
@@ -31,56 +32,118 @@ export class Game2Blaster extends GameBase {
         this.spawnFighters();
     }
 
-    buildArena() {
-        const floorMat = new THREE.MeshStandardMaterial({
-            color: 0x0f1526,
-            roughness: 0.35,
-            metalness: 0.7
-        });
-        const floor = new THREE.Mesh(new THREE.BoxGeometry(this.arenaSize * 2, 1, this.arenaSize * 2), floorMat);
-        floor.position.y = -0.5;
-        floor.receiveShadow = true;
-        this.scene.add(floor);
+    createBillboardAdTexture(title, subtitle, bgCss, accentCss) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 192;
+        const ctx = canvas.getContext('2d');
 
+        const grad = ctx.createLinearGradient(0, 0, 512, 192);
+        grad.addColorStop(0, '#070b18');
+        grad.addColorStop(0.5, bgCss);
+        grad.addColorStop(1, '#070b18');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 512, 192);
+
+        ctx.strokeStyle = accentCss;
+        ctx.lineWidth = 8;
+        ctx.strokeRect(8, 8, 496, 176);
+
+        ctx.fillStyle = accentCss;
+        ctx.font = 'bold 44px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(title, 256, 76);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.fillText(subtitle, 256, 134);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
+    }
+
+    buildArena() {
         const grid = new THREE.GridHelper(this.arenaSize * 2, 24, 0xff2a6d, 0x1e2942);
-        grid.position.y = 0.02;
+        grid.position.y = 0.03;
         this.scene.add(grid);
 
-        const pillarMat = new THREE.MeshStandardMaterial({
-            color: 0x1c2541,
-            roughness: 0.25,
-            metalness: 0.85
+        // Register collision boxes matching Blender arena_blaster.glb obstacles
+        this.obstacles.push({ x: 0, z: 0, halfX: 2.75, halfZ: 2.75 });
+        this.obstacles.push({ x: 0, z: -13, halfX: 4.1, halfZ: 1.45 });
+        this.obstacles.push({ x: 0, z: 13, halfX: 4.1, halfZ: 1.45 });
+        this.obstacles.push({ x: 13, z: 0, halfX: 1.45, halfZ: 4.1 });
+        this.obstacles.push({ x: -13, z: 0, halfX: 1.45, halfZ: 4.1 });
+
+        [[-9.5, -9.5], [9.5, -9.5], [-9.5, 9.5], [9.5, 9.5]].forEach(([x, z]) => {
+            this.obstacles.push({ x, z, halfX: 2.2, halfZ: 2.2 });
         });
-        const neonMat = new THREE.MeshStandardMaterial({
-            color: 0x00f0ff,
-            emissive: 0x00f0ff,
-            emissiveIntensity: 1.3
+        [[-17.5, -6.5], [17.5, -6.5], [-17.5, 6.5], [17.5, 6.5]].forEach(([x, z]) => {
+            this.obstacles.push({ x, z, halfX: 1.35, halfZ: 1.35 });
         });
 
-        const coords = [
-            [-10, -10], [10, -10], [-10, 10], [10, 10],
-            [0, -13], [0, 13], [-13, 0], [13, 0]
+        // Fallback floor in case GLB is still loading or blocked on file://
+        const fallbackFloor = new THREE.Mesh(
+            new THREE.BoxGeometry(this.arenaSize * 2, 1, this.arenaSize * 2),
+            new THREE.MeshStandardMaterial({ color: 0x0f1526, roughness: 0.35, metalness: 0.7 })
+        );
+        fallbackFloor.position.y = -0.52;
+        fallbackFloor.receiveShadow = true;
+        this.scene.add(fallbackFloor);
+
+        const ads = [
+            ['MINI CONSOLE 3D', 'NEXT-GEN PARTY GAMING', '#112a4a', '#00f0ff'],
+            ['PS3 WIRELESS', '60Hz ESP32 BRIDGE', '#2a1038', '#ff2a6d'],
+            ['CYBER BLASTER', 'ARENA CHAMPIONSHIP', '#0c2b2f', '#00ffa3'],
+            ['NEON ENERGY', 'MAX SHIELD +20 HP', '#331c08', '#ffaa00'],
+            ['HYPER LASER', 'RAPID FIRE OVERDRIVE', '#1b1440', '#a855f7'],
+            ['TURBO DASH', 'PRESS L1 / R1 TO DODGE', '#0f293d', '#38bdf8'],
+            ['TRIPLE SHOT', 'SPREAD CANNON MK-II', '#380d22', '#fb7185'],
+            ['CYBER CORE', 'CONTROL THE CENTER', '#0c2e2c', '#2dd4bf'],
+            ['PIXEL LABS', 'BLENDER 3D ARENA', '#291a08', '#facc15'],
+            ['ESP32-S3 HUB', '4-PLAYER MULTIPLAY', '#10213e', '#60a5fa'],
+            ['ARENA PRO', '5 HP TACTICAL MODE', '#2e0f2d', '#f472b6'],
+            ['NEXUS TECH', 'SPONSORED BY ANTIGRAVITY', '#0d2636', '#00f0ff']
         ];
-        coords.forEach(([x, z]) => {
-            const pGroup = new THREE.Group();
-            const core = new THREE.Mesh(new THREE.BoxGeometry(3.0, 3.2, 3.0), pillarMat);
-            core.position.y = 1.6;
-            core.castShadow = true;
-            core.receiveShadow = true;
-            pGroup.add(core);
 
-            const basePlinth = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.4, 3.4), pillarMat);
-            basePlinth.position.y = 0.2;
-            pGroup.add(basePlinth);
+        const gltfLoader = new GLTFLoader();
+        const modelUrl = window.location.protocol === 'file:'
+            ? 'public/models/arena_blaster.glb'
+            : '/models/arena_blaster.glb';
 
-            const trimBand = new THREE.Mesh(new THREE.BoxGeometry(3.15, 0.22, 3.15), neonMat);
-            trimBand.position.y = 2.6;
-            pGroup.add(trimBand);
-
-            pGroup.position.set(x, 0, z);
-            this.scene.add(pGroup);
-            this.obstacles.push({ x, z, half: 2.1 });
-        });
+        gltfLoader.load(
+            modelUrl,
+            (gltf) => {
+                if (!this.scene || this._disposed) return;
+                const arena = gltf.scene;
+                arena.traverse((child) => {
+                    if (!child.isMesh) return;
+                    const name = child.name || '';
+                    if (name.startsWith('Billboard_Screen_')) {
+                        const idx = parseInt(name.replace('Billboard_Screen_', ''), 10) || 0;
+                        const ad = ads[idx % ads.length];
+                        const tex = this.createBillboardAdTexture(ad[0], ad[1], ad[2], ad[3]);
+                        child.material = new THREE.MeshStandardMaterial({
+                            map: tex,
+                            emissive: 0xffffff,
+                            emissiveMap: tex,
+                            emissiveIntensity: 0.9,
+                            roughness: 0.25,
+                            metalness: 0.1
+                        });
+                    } else {
+                        child.receiveShadow = true;
+                        child.castShadow = name !== 'Arena_Floor';
+                    }
+                });
+                this.scene.add(arena);
+            },
+            undefined,
+            (err) => {
+                console.warn('Could not load arena_blaster.glb, using fallback geometry:', err);
+            }
+        );
     }
 
     /**
@@ -344,13 +407,15 @@ export class Game2Blaster extends GameBase {
             f.mesh.position.z = THREE.MathUtils.clamp(f.mesh.position.z, -this.arenaSize + 1, this.arenaSize - 1);
 
             for (const obs of this.obstacles) {
+                const hx = obs.halfX ?? obs.half;
+                const hz = obs.halfZ ?? obs.half;
                 const dx = f.mesh.position.x - obs.x;
                 const dz = f.mesh.position.z - obs.z;
-                if (Math.abs(dx) < obs.half && Math.abs(dz) < obs.half) {
-                    if (Math.abs(dx) > Math.abs(dz)) {
-                        f.mesh.position.x = obs.x + Math.sign(dx) * obs.half;
+                if (Math.abs(dx) < hx && Math.abs(dz) < hz) {
+                    if (Math.abs(dx) / hx > Math.abs(dz) / hz) {
+                        f.mesh.position.x = obs.x + Math.sign(dx) * hx;
                     } else {
-                        f.mesh.position.z = obs.z + Math.sign(dz) * obs.half;
+                        f.mesh.position.z = obs.z + Math.sign(dz) * hz;
                     }
                 }
             }
@@ -408,8 +473,10 @@ export class Game2Blaster extends GameBase {
 
             if (!hit) {
                 for (const obs of this.obstacles) {
-                    if (Math.abs(b.mesh.position.x - obs.x) < obs.half &&
-                        Math.abs(b.mesh.position.z - obs.z) < obs.half) {
+                    const hx = obs.halfX ?? obs.half;
+                    const hz = obs.halfZ ?? obs.half;
+                    if (Math.abs(b.mesh.position.x - obs.x) < hx &&
+                        Math.abs(b.mesh.position.z - obs.z) < hz) {
                         hit = true;
                         this.particles.emit(b.mesh.position, { x: 0, y: 2, z: 0 }, b.owner.colorHex, 0.3, 0.25, 6, 4);
                         break;
@@ -423,8 +490,8 @@ export class Game2Blaster extends GameBase {
                         const dist = Math.hypot(b.mesh.position.x - target.mesh.position.x, b.mesh.position.z - target.mesh.position.z);
                         if (dist < 1.05) {
                             hit = true;
-                            // ลดพลังชีวิตครั้งละ 10% (10 HP จากเต็ม 100 HP)
-                            const dmg = 10;
+                            // ลดพลังชีวิตครั้งละ 5% (5 HP จากเต็ม 100 HP)
+                            const dmg = 5;
                             target.hp = Math.max(0, target.hp - dmg);
                             b.owner.damageDealt += dmg;
                             b.owner.shotsHit++;
